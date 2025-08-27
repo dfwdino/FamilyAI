@@ -9,7 +9,6 @@
   <ItemGroup>
     <Folder Include="Application\" />
     <Folder Include="Infrastructure\" />
-    <Folder Include="Presentation\Admin\" />
   </ItemGroup>
 
   <ItemGroup>
