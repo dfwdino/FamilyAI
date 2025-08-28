@@ -25,7 +25,7 @@ namespace FamilyAI.Domain.Models
 
         // Navigation properties
         [ForeignKey(nameof(UserId))]
-        public virtual User User { get; set; } = null!;
+        public virtual UserModel User { get; set; } = null!;
 
         [ForeignKey(nameof(ThreadId))]
         public virtual Thread Thread { get; set; } = null!;

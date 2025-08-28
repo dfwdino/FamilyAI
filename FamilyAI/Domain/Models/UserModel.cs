@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace FamilyAI.Domain.Models
 {
     [Table("Users", Schema = "Chat")]
-    public class User : BasicModel
+    public class UserModel : BasicModel
     {
 
         [Required]
