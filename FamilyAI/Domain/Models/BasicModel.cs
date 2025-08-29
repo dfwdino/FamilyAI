@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ChatSystem.Domain.Models; //I like the word called Models vs Entities. :-P 
+namespace FamilyAI.Domain.Models; //I like the word called Models vs Entities. :-P 
 
 public class BasicModel
 {

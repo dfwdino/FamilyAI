@@ -1,4 +1,4 @@
-﻿using ChatSystem.Domain.Models;
+﻿using FamilyAI.Domain.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

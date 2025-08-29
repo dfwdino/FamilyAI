@@ -1,5 +1,4 @@
 using FamilyAI.Domain.Data;
-using FamilyAI.Domain.Models;
 using FamilyAI.Infrastructure.Services;
 using FamilyAI.Presentation;
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +20,10 @@ builder.Services.AddScoped<UserServcies, UserServcies>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
-}
+//if (!app.Environment.IsDevelopment())
+//{
+//    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+//}
 
 app.UseAntiforgery();
 

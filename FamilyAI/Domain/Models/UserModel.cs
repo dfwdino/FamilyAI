@@ -1,5 +1,4 @@
-﻿using ChatSystem.Domain.Models;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FamilyAI.Domain.Models
@@ -9,16 +8,20 @@ namespace FamilyAI.Domain.Models
     {
         [Required]
         [MaxLength(50)]
-        public string Username { get; set; }
+        public string Username { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(255)]
-        public string Password { get; set; }
+        public string Password { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(255)]
+        public string Name { get; set; } = string.Empty;
 
 
 
         // Navigation properties
-        public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
+        public virtual UserPermission UserPermissions { get; set; } = new UserPermission();
         public virtual ICollection<ChatLog> ChatLogs { get; set; } = new List<ChatLog>();
     }
 }

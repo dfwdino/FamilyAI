@@ -1,16 +1,24 @@
 ﻿@page "/AdminLayout"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@rendermode InteractiveServer
+
+@attribute [Authorize(Roles = "adsf")]
 
 <div class="modern-split-container">
     <div class="modern-left-panel" style="width: 25%;">
         <div class="modern-panel-content">
-            <FamilyAI.Presentation.User.Menu />
+            <FamilyAI.Presentation.Admin.Menu />
         </div>
         <div class="modern-resize-handle"></div>
     </div>
 
     <div class="modern-right-panel">
         <div class="modern-panel-content">
-            <FamilyAI.Presentation.User.Main />
+            <FamilyAI.Presentation.Admin.Main />
         </div>
     </div>
 </div>

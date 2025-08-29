@@ -1,10 +1,16 @@
 ﻿@page "/"
 
+@rendermode InteractiveServer
+
 @using FamilyAI.Domain.Models
+@using FamilyAI.Infrastructure
 @using FamilyAI.Infrastructure.Services
 @using FamilyAI.Presentation.Layout
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject UserServcies _userServices
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 
 
 
@@ -18,18 +24,19 @@ Welcome to your new app.
 <div> Sign in</div>
 
 <div id="choreForm">
-<EditForm Model="_usermodel" OnValidSubmit="HandleValidSubmit" FormName="SignIn">
+    <EditForm Model="loginModel" OnValidSubmit="HandleValidSubmit" FormName="SignIn">
     <DataAnnotationsValidator />
     <ValidationSummary />
     <div class="mb-3">
         <label class="form-label">Chore Name</label>
-            <InputText class="form-control" @bind-Value="@_usermodel.Username" />
+            <InputText class="form-control" @bind-Value="loginModel.Username" />
     </div>
     <div class="mb-3">
         <label class="form-label">Price</label>
-            <InputText class="form-control" @bind-Value="@_usermodel.Password" />
+            <InputText class="form-control" @bind-Value="loginModel.Password" />
+
     </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-success btn-lg w-100">Log In</button>
    
 </EditForm>
 </div>
@@ -42,16 +49,39 @@ Welcome to your new app.
 
 
 @code{
-    UserModel _usermodel  { get; set; } = new();
+    private LoginModel loginModel = new();
+
+    private string? returnUrl;
+
+    protected override void OnInitialized()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        returnUrl = query["returnUrl"];
+    }
 
     private async Task HandleValidSubmit()
     {
-        if(_usermodel != null)
+        if (loginModel != null)
         {
-            var result = await _userServices.SignIn(_usermodel);
+            var result = await _userServices.SignIn(loginModel);
+            ((CustomAuthenticationStateProvider)AuthStateProvider).NotifyUserAuthentication();
             if(result != null)
             {
                 Console.WriteLine("Sign in successful");
+                
+                switch (result.RoleName)
+                {
+                    case "Admin":
+                        NavigationManager.NavigateTo("/AdminLayout");
+                        break;
+                    case "User":
+                        NavigationManager.NavigateTo("/UserLayout");
+                        break;
+                    default:
+                        NavigationManager.NavigateTo("/");
+                        break;
+                }
             }
             else
             {
