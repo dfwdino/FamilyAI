@@ -7,14 +7,13 @@ namespace FamilyAI.Domain.Models
     [Table("Users", Schema = "Chat")]
     public class UserModel : BasicModel
     {
-
         [Required]
         [MaxLength(50)]
-        public string Username { get; set; } = string.Empty;
+        public string Username { get; set; }
 
         [Required]
         [MaxLength(255)]
-        public string Password { get; set; } = string.Empty;
+        public string Password { get; set; }
 
 
 

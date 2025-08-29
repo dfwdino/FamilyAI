@@ -18,18 +18,18 @@ Welcome to your new app.
 <div> Sign in</div>
 
 <div id="choreForm">
-<EditForm Model="_usermodel" OnValidSubmit="HandleValidSubmit">
+<EditForm Model="_usermodel" OnValidSubmit="HandleValidSubmit" FormName="SignIn">
     <DataAnnotationsValidator />
     <ValidationSummary />
     <div class="mb-3">
         <label class="form-label">Chore Name</label>
-        <InputText class="form-control" @bind-Value="_usermodel.Username" />
+            <InputText class="form-control" @bind-Value="@_usermodel.Username" />
     </div>
     <div class="mb-3">
         <label class="form-label">Price</label>
-            <InputText class="form-control" @bind-Value="_usermodel.Password" />
+            <InputText class="form-control" @bind-Value="@_usermodel.Password" />
     </div>
-    <button type="submit" class="btn btn-success" ></button>
+        <button type="submit" class="btn btn-primary">Submit</button>
    
 </EditForm>
 </div>
@@ -42,7 +42,7 @@ Welcome to your new app.
 
 
 @code{
-    UserModel _usermodel = new();
+    UserModel _usermodel  { get; set; } = new();
 
     private async Task HandleValidSubmit()
     {
@@ -57,7 +57,7 @@ Welcome to your new app.
             {
                 Console.WriteLine("Sign in failed");
             }
-        })
+        }
         
     }
 }

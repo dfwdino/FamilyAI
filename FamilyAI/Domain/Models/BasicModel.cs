@@ -10,5 +10,5 @@ public class BasicModel
     public int Id { get; set; }
 
     [Required]
-    public bool IsDeleted { get; set; } = false;
+    public bool IsDeleted { get; set; }
 }

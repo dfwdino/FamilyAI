@@ -1,4 +1,6 @@
 using FamilyAI.Domain.Data;
+using FamilyAI.Domain.Models;
+using FamilyAI.Infrastructure.Services;
 using FamilyAI.Presentation;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +15,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContext<MyDbContext>(options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<UserServcies, UserServcies>();
 
 var app = builder.Build();
 
