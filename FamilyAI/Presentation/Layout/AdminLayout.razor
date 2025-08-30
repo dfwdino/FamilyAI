@@ -4,22 +4,40 @@
 
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
+@inject NavigationManager NavigationManager
+
 @rendermode InteractiveServer
 
-@attribute [Authorize(Roles = "adsf")]
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <div class="modern-split-container">
+            <div class="modern-left-panel" style="width: 25%;">
+                <div class="modern-panel-content">
+                    <FamilyAI.Presentation.Admin.Menu />
+                </div>
+                <div class="modern-resize-handle"></div>
+            </div>
 
-<div class="modern-split-container">
-    <div class="modern-left-panel" style="width: 25%;">
-        <div class="modern-panel-content">
-            <FamilyAI.Presentation.Admin.Menu />
+            <div class="modern-right-panel">
+                <div class="modern-panel-content">
+                    <FamilyAI.Presentation.Admin.Main />
+                </div>
+            </div>
         </div>
-        <div class="modern-resize-handle"></div>
-    </div>
-
-    <div class="modern-right-panel">
-        <div class="modern-panel-content">
-            <FamilyAI.Presentation.Admin.Main />
+    </Authorized>
+    <NotAuthorized>
+        <div style="text-align: center; margin-top: 50px;">
+            <h3>Access Denied</h3>
+            <p>You need Admin privileges to access this page.</p>
+            <button @onclick="GoHome">Go Home</button>  
         </div>
-    </div>
-</div>
+    </NotAuthorized>
+</AuthorizeView>
 
+
+@code {
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}

@@ -65,7 +65,10 @@ Welcome to your new app.
         if (loginModel != null)
         {
             var result = await _userServices.SignIn(loginModel);
+
+            AuthState.CurrentUser = result;
             ((CustomAuthenticationStateProvider)AuthStateProvider).NotifyUserAuthentication();
+
             if(result != null)
             {
                 Console.WriteLine("Sign in successful");
