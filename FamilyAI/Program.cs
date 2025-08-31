@@ -34,6 +34,8 @@ builder.Services.AddAuthorizationCore();
 
 
 builder.Services.AddScoped<UserServcies, UserServcies>();
+builder.Services.AddScoped<ThreadService, ThreadService>();
+
 
 var app = builder.Build();
 

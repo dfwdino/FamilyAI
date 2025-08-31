@@ -27,6 +27,6 @@ namespace FamilyAI.Domain.Models
         public virtual UserModel User { get; set; } = null!;
 
         [ForeignKey(nameof(ThreadId))]
-        public virtual Thread Thread { get; set; } = null!;
+        public virtual ThreadModel Thread { get; set; } = null!;
     }
 }

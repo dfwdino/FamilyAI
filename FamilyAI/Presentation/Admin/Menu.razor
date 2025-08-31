@@ -1,6 +1,12 @@
 @page "/AdminMenu"
+@using FamilyAI.Domain.Models
+@using FamilyAI.Infrastructure.Services
 @using FamilyAI.Presentation.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+
 @layout AdminLayout
+@inject ThreadService threadService
 
 <PageTitle>Admin Menu</PageTitle>
 <h2>Admin Menu</h2>
+

@@ -1,6 +1,40 @@
 @page "/UserMenu"
+@using FamilyAI.Domain.Models
+@using FamilyAI.Infrastructure.Services
 @using FamilyAI.Presentation.Layout
+@using Microsoft.AspNetCore.Components.Authorization
 @layout UserLayout
+
+@inject ThreadService threadService
+
+@rendermode InteractiveServer
 
 <PageTitle>User Menu</PageTitle>
 <h2>User Menu</h2>
+<CascadingAuthenticationState>
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <h1>your in</h1>
+        @foreach (var thread in threadModels)
+        {
+            <h2>@thread.ThreadName</h2>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <p>You do not have access to this page.</p>
+    </NotAuthorized>
+</AuthorizeView>
+</CascadingAuthenticationState>
+
+@code {
+    List<ThreadModel> threadModels = new List<ThreadModel>();
+    int userId = 1;
+
+    protected override void OnInitialized()
+    {
+        userId = AuthState.CurrentUser.UserId;
+        threadModels = threadService.GetAllThreadsByUser(userId);
+    }
+}
+

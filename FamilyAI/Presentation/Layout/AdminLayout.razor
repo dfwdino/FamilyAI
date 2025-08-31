@@ -8,11 +8,12 @@
 
 @rendermode InteractiveServer
 
+<CascadingAuthenticationState >
 <AuthorizeView Roles="Admin">
     <Authorized>
         <div class="modern-split-container">
             <div class="modern-left-panel" style="width: 25%;">
-                <div class="modern-panel-content">
+                <div class="modern-panel-content">  
                     <FamilyAI.Presentation.Admin.Menu />
                 </div>
                 <div class="modern-resize-handle"></div>
@@ -33,7 +34,7 @@
         </div>
     </NotAuthorized>
 </AuthorizeView>
-
+</CascadingAuthenticationState>
 
 @code {
     private void GoHome()

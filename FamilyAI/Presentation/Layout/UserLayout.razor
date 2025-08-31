@@ -1,17 +1,44 @@
-﻿
+﻿@page "/UserLayout"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
-<div class="modern-split-container">
-    <div class="modern-left-panel" style="width: 25%;">
-        <div class="modern-panel-content">
-            <FamilyAI.Presentation.User.Menu />
-        </div>
-        <div class="modern-resize-handle"></div>
-    </div>
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-    <div class="modern-right-panel">
-        <div class="modern-panel-content">
-            <FamilyAI.Presentation.User.Main />
-        </div>
-    </div>
-</div>
+@inject NavigationManager NavigationManager
 
+@rendermode InteractiveServer
+
+<CascadingAuthenticationState>
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <div class="modern-split-container">
+                <div class="modern-left-panel" style="width: 25%;">
+                    <div class="modern-panel-content">
+                        <FamilyAI.Presentation.User.Menu />
+                    </div>
+                    <div class="modern-resize-handle"></div>
+                </div>
+
+                <div class="modern-right-panel">
+                    <div class="modern-panel-content">
+                        <FamilyAI.Presentation.User.Main />
+                    </div>
+                </div>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div style="text-align: center; margin-top: 50px;">
+                <h3>Access Denied</h3>
+                <p>You need Admin privileges to access this page.</p>
+                <button @onclick="GoHome">Go Home</button>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</CascadingAuthenticationState>
+
+@code {
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}
