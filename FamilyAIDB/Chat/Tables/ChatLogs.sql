@@ -7,6 +7,6 @@
     [IsDeleted] BIT            CONSTRAINT [DF__ChatLog__IsDelet__367C1819] DEFAULT ((0)) NOT NULL,
     [ThreadID]  INT            NOT NULL,
     CONSTRAINT [PK__ChatLog__3214EC27B7FD4400] PRIMARY KEY CLUSTERED ([ID] ASC),
-    CONSTRAINT [FK_ChatLog_User] FOREIGN KEY ([ThreadID]) REFERENCES [Chat].[Threads] ([ID])
+    CONSTRAINT [FK_ChatLog_User] FOREIGN KEY ([UserID]) REFERENCES [Chat].[Users] ([ID])
 );
 
