@@ -6,7 +6,6 @@ namespace FamilyAI.Infrastructure.Services
 {
     public class UserServices
     {
-
         private readonly MyDbContext myDbContext;
 
         public UserServices(MyDbContext myDbContext)

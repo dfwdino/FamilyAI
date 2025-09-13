@@ -19,8 +19,10 @@ builder.Services.AddRazorComponents()
 // FIX: Ensure you have installed the NuGet package ''
 // If not, run: dotnet add package Microsoft.EntityFrameworkCore.SqlServer
 
+// Register as Transient to avoid disposal issues in Blazor Server
 builder.Services.AddDbContext<MyDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")),
+        ServiceLifetime.Transient);
 
 // Add minimal authentication services to satisfy the requirement
 builder.Services.AddAuthentication()
@@ -31,10 +33,9 @@ builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStat
 builder.Services.AddAuthorizationCore();
 
 
-
-
-builder.Services.AddScoped<UserServcies, UserServcies>();
+builder.Services.AddScoped<UserServices, UserServices>();
 builder.Services.AddScoped<ThreadService, ThreadService>();
+builder.Services.AddScoped<ChatLogService, ChatLogService>();
 
 
 var app = builder.Build();

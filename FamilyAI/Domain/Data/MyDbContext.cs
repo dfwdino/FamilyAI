@@ -13,6 +13,7 @@ namespace FamilyAI.Domain.Data
         public DbSet<Models.UserModel> Users { get; set; }
         public DbSet<Models.ThreadModel> Threads { get; set; }
         public DbSet<Models.UserPermission> UserPermissions { get; set; }
+        public DbSet<Models.ChatLog> ChatLogs { get; set; }
 
     }
 }
