@@ -1,0 +1,73 @@
+﻿@page "/chat"
+@page "/chat/{ThreadId:int}"
+
+@using FamilyAI.Domain.Models
+@using FamilyAI.Infrastructure
+@using FamilyAI.Infrastructure.Services
+@using FamilyAI.Presentation.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject ChatLogService _chatLogService
+
+@layout UserLayout
+
+@rendermode InteractiveServer
+
+
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>You Chat</h3>
+        @foreach (var log in logs)
+        {
+
+            if (log.IsReply)
+            {
+                <div class="col-md-6" style="text-align:left">@log.Text</div>
+            }
+            else
+            {
+                <div class="col-md-6" style="text-align:right">@log.Text</div>
+            }
+
+        }
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6">
+
+        <p>
+            <InputTextArea class="form-control" @bind-Value="chatLogs.Text"></InputTextArea>
+            <button onclick="AddChat">submit</button>
+        </p>
+    </div>
+
+</div>
+
+
+@code {
+    ChatLog chatLogs = new ChatLog();
+    List<ChatLog> logs = new List<ChatLog>();
+
+
+    protected override async void OnInitialized()
+    {
+        //userId = AuthState.CurrentUser.UserId;
+        logs = await _chatLogService.GetChatLogsByThreadAsync(1);
+    }
+
+
+    void AddChat()
+    {
+        chatLogs.EntryTime = DateTime.Now;
+        chatLogs.ThreadId = 1;
+        chatLogs.IsReply = false;
+        logs.Add(chatLogs);
+
+        _chatLogService.AddChatLogAsync(chatLogs);
+
+        chatLogs.Text = string.Empty;
+    }
+
+
+}

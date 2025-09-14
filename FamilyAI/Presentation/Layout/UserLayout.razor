@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 
+
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 @inject NavigationManager NavigationManager
@@ -44,8 +45,15 @@
 </CascadingAuthenticationState>
 
 @code {
+    private Type? currentComponent;
+    private Dictionary<string, object> componentParameters = new();
+
+
     private void GoHome()
     {
         NavigationManager.NavigateTo("/");
     }
+
+
+
 }
