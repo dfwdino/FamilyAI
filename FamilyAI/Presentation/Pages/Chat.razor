@@ -8,6 +8,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 
 @inject ChatLogService _chatLogService
+@inject IJSRuntime JSRuntime
 
 @layout UserLayout
 
@@ -17,20 +18,26 @@
 
 <div class="row">
     <div class="col-md-6">
-        <h3>You Chat</h3>
+        <h3>@logs.FirstOrDefault()?.Thread.ThreadName</h3>
+        <div @ref="chatContainer" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
+
         @foreach (var log in logs)
         {
 
             if (log.IsReply)
             {
-                <div class="col-md-6" style="text-align:left">@log.Text</div>
+                <div class="col-md-6" style="text-align:left;">@log.Text</div>
+              
+
             }
             else
             {
-                <div class="col-md-6" style="text-align:right">@log.Text</div>
+                <div class="col-md-6" style="text-align:right;color:blue">@log.Text</div>
             }
 
+            <hr />
         }
+        </div>
     </div>
 </div>
 <div class="row">
@@ -38,35 +45,70 @@
 
         <p>
             <InputTextArea class="form-control" @bind-Value="chatLogs.Text"></InputTextArea>
-            <button onclick="AddChat">submit</button>
+            <button @onclick="@(() => AddChat())">submit</button>
         </p>
     </div>
 
 </div>
 
+<script>
+    function scrollToBottom(element) {
+        element.scrollTop = element.scrollHeight;
+    }
+</script>
+
 
 @code {
     ChatLog chatLogs = new ChatLog();
     List<ChatLog> logs = new List<ChatLog>();
+    int userId;
+    private ElementReference chatContainer;
+    private bool firstRender = true;
 
 
-    protected override async void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        //userId = AuthState.CurrentUser.UserId;
+        userId = AuthState.CurrentUser.UserId;
         logs = await _chatLogService.GetChatLogsByThreadAsync(1);
+      
+      
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Scroll to bottom on first load
+            await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
+        }
     }
 
 
-    void AddChat()
+    private async void AddChat()
     {
-        chatLogs.EntryTime = DateTime.Now;
-        chatLogs.ThreadId = 1;
-        chatLogs.IsReply = false;
-        logs.Add(chatLogs);
+       
+        var newMessage = new ChatLog
+        {
+            EntryTime = DateTime.Now,
+            ThreadId = 1,
+            IsReply = false,
+            UserId = userId,
+            Text = chatLogs.Text  // Copy the text from the input
+        };
 
-        _chatLogService.AddChatLogAsync(chatLogs);
+       
+        logs.Add(newMessage);
 
+       
+        await _chatLogService.AddChatLogAsync(newMessage);
+
+     
         chatLogs.Text = string.Empty;
+
+        // Force UI update
+        StateHasChanged();
+
+        // Scroll to bottom after the UI updates
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
     }
 
 

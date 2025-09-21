@@ -32,7 +32,7 @@ namespace FamilyAI.Infrastructure.Services
 
                 _myDbContext.ChatLogs.Add(chatLog);
                 await _myDbContext.SaveChangesAsync();
-                
+
                 return chatLog;
             }
             catch (Exception ex)
@@ -82,7 +82,7 @@ namespace FamilyAI.Infrastructure.Services
 
             chatLog.IsDeleted = true;
             await _myDbContext.SaveChangesAsync();
-            
+
             return true;
         }
 
@@ -103,7 +103,7 @@ namespace FamilyAI.Infrastructure.Services
 
             _myDbContext.ChatLogs.Remove(chatLog);
             await _myDbContext.SaveChangesAsync();
-            
+
             return true;
         }
 
@@ -118,6 +118,8 @@ namespace FamilyAI.Infrastructure.Services
             {
                 var query = _myDbContext.ChatLogs
                     .AsNoTracking()
+                    .Include(th => th.Thread)
+                    .Include(th => th.User)
                     .Where(cl => cl.ThreadId == threadId && !cl.IsDeleted)
                     .OrderBy(cl => cl.EntryTime);
 

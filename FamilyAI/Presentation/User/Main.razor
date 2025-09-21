@@ -1,4 +1,27 @@
 @page "/UserMain"
+@using FamilyAI.Domain.Models
 
 
-<h2>welcomw</h2>
+@* <h2>wecome</h2>
+
+<output name="AIChat">@chatLog.Text</output>
+
+<InputTextArea @bind-Value="chatLog.Text"  Placeholder="Type your message here..." class="form-control" />
+
+<button class="btn btn-primary mt-2" onclick="UserChat()">Submit</button>
+ *@
+@* 
+@code{
+    ChatLog chatLog = new ChatLog();
+
+    private void UserChat()
+    {
+        // Logic to handle user chat input
+        chatLog.Text += "\nUser: " + chatLog.Text;
+    }
+
+
+} *@
+
+
+<FamilyAI.Presentation.Pages.Chat />
