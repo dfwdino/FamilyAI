@@ -20,16 +20,18 @@ namespace FamilyAI.Infrastructure.Services
         /// <returns>The added chat log with generated ID</returns>
         public async Task<ChatLog> AddChatLogAsync(ChatLog chatLog)
         {
-            if (chatLog.ThreadId.Equals(0))
+            if (chatLog.ThreadId.Equals(obj: 0))
             {
-                _myDbContext.Threads.Add(new ThreadModel
+                _myDbContext.Threads.Add(entity: new ThreadModel
                 {
                     UserId = chatLog.UserId,
-                    ThreadName = chatLog.Text.Substring(0, 10)
+                    ThreadName = chatLog.Text.Substring(startIndex: 0, length: 10)
                 });
 
+                // Wait for the save to complete
                 await _myDbContext.SaveChangesAsync();
 
+                // NOW get the ID after it's been saved
                 chatLog.ThreadId = _myDbContext.Threads.OrderByDescending(t => t.Id).First().Id;
             }
 
