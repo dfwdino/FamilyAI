@@ -20,6 +20,20 @@ namespace FamilyAI.Infrastructure.Services
         /// <returns>The added chat log with generated ID</returns>
         public async Task<ChatLog> AddChatLogAsync(ChatLog chatLog)
         {
+            if (chatLog.ThreadId.Equals(0))
+            {
+                _myDbContext.Threads.Add(new ThreadModel
+                {
+                    UserId = chatLog.UserId,
+                    ThreadName = chatLog.Text.Substring(0, 10)
+                });
+
+                await _myDbContext.SaveChangesAsync();
+
+                chatLog.ThreadId = _myDbContext.Threads.OrderByDescending(t => t.Id).First().Id;
+            }
+
+
             try
             {
                 // Set default values if not provided
@@ -52,6 +66,7 @@ namespace FamilyAI.Infrastructure.Services
         /// <returns>The added chat log with generated ID</returns>
         public async Task<ChatLog> AddChatLogAsync(int userId, int threadId, string text, bool isReply = false)
         {
+
             var chatLog = new ChatLog
             {
                 UserId = userId,

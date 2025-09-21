@@ -17,7 +17,7 @@
             <ul>
                 @foreach (var thread in threadModels)
                 {
-                    <li style="color:white">@thread.ThreadName</li>
+                    <li style="color:white"><a href="UserLayout/@thread.Id"> @thread.ThreadName</a></li>
                 }
 
             </ul>

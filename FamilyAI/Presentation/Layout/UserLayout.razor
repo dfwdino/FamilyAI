@@ -1,4 +1,5 @@
 ﻿@page "/UserLayout"
+@page "/UserLayout/{ThreadId:int}"
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 
@@ -73,7 +74,8 @@
     <!-- Main Content -->
     <main id="content">
         <div class="mt-4">
-            <FamilyAI.Presentation.User.Main />
+    @*         <FamilyAI.Presentation.User.Main /> *@
+                        <FamilyAI.Presentation.Pages.Chat ThreadId=@ThreadId />
         </div>
     </main>
 </div>
@@ -119,6 +121,10 @@
 </script>
 
 @code {
+    [Parameter]
+    public int ThreadId { get; set; } = 0;
+
+
     private Type? currentComponent;
     private Dictionary<string, object> componentParameters = new();
 

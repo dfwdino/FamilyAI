@@ -59,6 +59,9 @@
 
 
 @code {
+    [Parameter]
+    public int ThreadId { get; set; } = 0;
+
     ChatLog chatLogs = new ChatLog();
     List<ChatLog> logs = new List<ChatLog>();
     int userId;
@@ -69,9 +72,9 @@
     protected override async Task OnInitializedAsync()
     {
         userId = AuthState.CurrentUser.UserId;
-        logs = await _chatLogService.GetChatLogsByThreadAsync(1);
-      
-      
+        logs = await _chatLogService.GetChatLogsByThreadAsync(ThreadId);
+
+
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -85,15 +88,20 @@
 
     private async void AddChat()
     {
-       
+
         var newMessage = new ChatLog
         {
             EntryTime = DateTime.Now,
-            ThreadId = 1,
             IsReply = false,
             UserId = userId,
             Text = chatLogs.Text  // Copy the text from the input
         };
+
+        if(ThreadId != 0)
+        {
+            newMessage.ThreadId = ThreadId;
+        }
+       
 
        
         logs.Add(newMessage);
