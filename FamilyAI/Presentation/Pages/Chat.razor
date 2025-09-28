@@ -101,13 +101,16 @@
         {
             newMessage.ThreadId = ThreadId;
         }
-       
 
-       
+
+
         logs.Add(newMessage);
 
-       
+
         await _chatLogService.AddChatLogAsync(newMessage);
+
+        AIChatService aIChatService = new AIChatService();
+
 
      
         chatLogs.Text = string.Empty;
