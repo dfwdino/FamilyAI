@@ -25,11 +25,11 @@ Welcome to your new app.
     <DataAnnotationsValidator />
     <ValidationSummary />
     <div class="mb-3">
-        <label class="form-label">Chore Name</label>
+        <label class="form-label">User Name</label>
             <InputText class="form-control" @bind-Value="loginModel.Username"/>
     </div>
     <div class="mb-3">
-        <label class="form-label">Price</label>
+        <label class="form-label">password</label>
             <InputText class="form-control" @bind-Value="loginModel.Password" />
 
     </div>
@@ -76,6 +76,9 @@ Welcome to your new app.
                         NavigationManager.NavigateTo("/UserLayout");
                         break;
                     case "User":
+                        NavigationManager.NavigateTo("/UserLayout");
+                        break;
+                    case "Child":
                         NavigationManager.NavigateTo("/UserLayout");
                         break;
                     default:
