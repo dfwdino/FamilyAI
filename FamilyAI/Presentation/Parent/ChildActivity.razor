@@ -270,4 +270,7 @@ else
             confirmDeleteThreadId = 0;
         }
     }
+
+    private void ShowStatus(string msg, bool error = false)
+    { statusMessage = msg; statusIsError = error; }
 }
