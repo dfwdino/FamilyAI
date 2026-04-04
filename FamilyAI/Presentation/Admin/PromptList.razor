@@ -1,0 +1,282 @@
+@page "/admin/prompts"
+@layout AdminLayout
+@inject PromptSettingService PromptSvc
+
+<PageTitle>Prompt Templates — FamilyAI</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Prompt Templates</h2>
+        <small class="text-muted">Define how the AI behaves for children</small>
+    </div>
+    <button class="btn @(showAddForm ? "btn-outline-secondary" : "btn-primary")" @onclick="ToggleAddForm">
+        @if (showAddForm)
+        {
+            <i class="bi bi-x-lg me-1"></i><span>Cancel</span>
+        }
+        else
+        {
+            <i class="bi bi-plus-lg me-1"></i><span>New Template</span>
+        }
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(statusIsError ? "alert-danger" : "alert-success") alert-dismissible d-flex align-items-center gap-2 mb-4">
+        <i class="bi @(statusIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")"></i>
+        @statusMessage
+        <button type="button" class="btn-close ms-auto" @onclick='() => statusMessage = null'></button>
+    </div>
+}
+
+@if (showAddForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-plus-circle me-2"></i>New Prompt Template
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Template Name</label>
+                <input class="form-control" placeholder="e.g. Science Helper" @bind="newName" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Prompt Content</label>
+                <textarea class="form-control font-monospace" rows="8"
+                          placeholder="Write the system prompt here. This tells the AI how to behave..."
+                          @bind="newContent" style="font-size:0.85rem;"></textarea>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="newIsDefault" @bind="newIsDefault" />
+                <label class="form-check-label" for="newIsDefault">
+                    Set as default (used when no specific template is assigned to a child)
+                </label>
+            </div>
+            <button class="btn btn-success" @onclick="AddTemplate">
+                <i class="bi bi-check-lg me-1"></i> Save Template
+            </button>
+        </div>
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!templates.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-chat-square-text" style="font-size:3rem; opacity:.3;"></i>
+                <p class="mt-2">No templates yet. Add one above.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var t in templates)
+            {
+                <div class="border-bottom p-4 @(editingId == t.Id ? "bg-light" : "")">
+                    @if (editingId == t.Id)
+                    {
+                        <!-- Edit mode -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Template Name</label>
+                            <input class="form-control" @bind="editName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Prompt Content</label>
+                            <textarea class="form-control font-monospace" rows="10"
+                                      @bind="editContent" style="font-size:0.85rem;"></textarea>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="editIsDefault_@t.Id" @bind="editIsDefault" />
+                            <label class="form-check-label" for="editIsDefault_@t.Id">
+                                Set as default
+                            </label>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="SaveEdit">
+                                <i class="bi bi-check-lg me-1"></i> Save
+                            </button>
+                            <button class="btn btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- View mode -->
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <h5 class="mb-0 fw-semibold">@t.Name</h5>
+                                    @if (t.IsDefault)
+                                    {
+                                        <span class="badge bg-success">Default</span>
+                                    }
+                                    @{
+                                        var usage = usageCounts.GetValueOrDefault(t.Id, 0);
+                                    }
+                                    @if (usage > 0)
+                                    {
+                                        <span class="badge bg-info text-dark">
+                                            <i class="bi bi-people me-1"></i>@usage child@(usage == 1 ? "" : "ren")
+                                        </span>
+                                    }
+                                </div>
+                                <pre class="text-muted mb-0" style="font-size:0.8rem;white-space:pre-wrap;max-height:80px;overflow:hidden;">@t.Content</pre>
+                                @if (t.Content.Length > 200)
+                                {
+                                    <small class="text-muted fst-italic">…truncated for preview</small>
+                                }
+                            </div>
+                            <div class="d-flex gap-2 flex-shrink-0">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => StartEdit(t)"
+                                        title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                @if (confirmDeleteId == t.Id)
+                                {
+                                    <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(t.Id)">
+                                        <i class="bi bi-check-lg me-1"></i>Confirm
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="CancelDelete">
+                                        Cancel
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => confirmDeleteId = t.Id"
+                                            title="Delete" disabled="@(usage > 0 || t.IsDefault)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        @if (usage > 0)
+                        {
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Unassign all children before deleting.
+                            </small>
+                        }
+                        @if (t.IsDefault)
+                        {
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Default template cannot be deleted. Set another as default first.
+                            </small>
+                        }
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<PromptTemplate> templates = new();
+    private Dictionary<int, int> usageCounts = new();
+
+    private bool showAddForm;
+    private string newName = string.Empty;
+    private string newContent = string.Empty;
+    private bool newIsDefault;
+
+    private int editingId;
+    private string editName = string.Empty;
+    private string editContent = string.Empty;
+    private bool editIsDefault;
+
+    private int confirmDeleteId;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        templates = await PromptSvc.GetAllTemplatesAsync();
+        usageCounts = new Dictionary<int, int>();
+        foreach (var t in templates)
+            usageCounts[t.Id] = await PromptSvc.GetUsageCountAsync(t.Id);
+    }
+
+    private void ToggleAddForm()
+    {
+        showAddForm = !showAddForm;
+        newName = newContent = string.Empty;
+        newIsDefault = false;
+    }
+
+    private async Task AddTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(newName) || string.IsNullOrWhiteSpace(newContent))
+        { ShowStatus("Name and content are required.", true); return; }
+
+        try
+        {
+            await PromptSvc.CreateTemplateAsync(newName.Trim(), newContent.Trim(), newIsDefault);
+            showAddForm = false;
+            await LoadData();
+            ShowStatus("Template created.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void StartEdit(PromptTemplate t)
+    {
+        editingId = t.Id;
+        editName = t.Name;
+        editContent = t.Content;
+        editIsDefault = t.IsDefault;
+        confirmDeleteId = 0;
+    }
+
+    private void CancelEdit() => editingId = 0;
+
+    private async Task SaveEdit()
+    {
+        if (string.IsNullOrWhiteSpace(editName) || string.IsNullOrWhiteSpace(editContent))
+        { ShowStatus("Name and content are required.", true); return; }
+
+        try
+        {
+            await PromptSvc.UpdateTemplateAsync(editingId, editName.Trim(), editContent.Trim(), editIsDefault);
+            editingId = 0;
+            await LoadData();
+            ShowStatus("Template saved.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void CancelDelete() => confirmDeleteId = 0;
+
+    private async Task ConfirmDelete(int id)
+    {
+        try
+        {
+            bool deleted = await PromptSvc.DeleteTemplateAsync(id);
+            confirmDeleteId = 0;
+            if (deleted)
+            {
+                await LoadData();
+                ShowStatus("Template deleted.");
+            }
+            else
+            {
+                ShowStatus("Cannot delete: template is in use or is the last template.", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void ShowStatus(string msg, bool error = false)
+    { statusMessage = msg; statusIsError = error; }
+}

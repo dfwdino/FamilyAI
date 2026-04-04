@@ -22,17 +22,21 @@ namespace FamilyAI.Infrastructure.Services
         {
             if (chatLog.ThreadId.Equals(obj: 0))
             {
-                _myDbContext.Threads.Add(entity: new ThreadModel
+                var threadName = chatLog.Text.Length >= 10
+                    ? chatLog.Text.Substring(0, 10)
+                    : chatLog.Text;
+                var newThread = new ThreadModel
                 {
                     UserId = chatLog.UserId,
-                    ThreadName = chatLog.Text.Substring(startIndex: 0, length: 10)
-                });
+                    ThreadName = threadName
+                };
+                _myDbContext.Threads.Add(newThread);
 
                 // Wait for the save to complete
                 await _myDbContext.SaveChangesAsync();
 
-                // NOW get the ID after it's been saved
-                chatLog.ThreadId = _myDbContext.Threads.OrderByDescending(t => t.Id).First().Id;
+                // Use the EF-tracked entity's generated Id (avoids race conditions)
+                chatLog.ThreadId = newThread.Id;
             }
 
 

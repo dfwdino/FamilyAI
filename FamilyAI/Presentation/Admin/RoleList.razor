@@ -1,0 +1,253 @@
+@page "/admin/roles"
+@layout AdminLayout
+@inject UserManagementService UserMgmt
+@inject NavigationManager NavigationManager
+
+<PageTitle>Role Management — FamilyAI</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Role Management</h2>
+        <small class="text-muted">Define the roles users can be assigned</small>
+    </div>
+    <button class="btn @(showAddForm ? "btn-outline-secondary" : "btn-primary")"
+            @onclick="ToggleAddForm">
+        @if (showAddForm)
+        {
+            <i class="bi bi-x-lg me-1"></i><span>Cancel</span>
+        }
+        else
+        {
+            <i class="bi bi-plus-lg me-1"></i><span>Add Role</span>
+        }
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(statusIsError ? "alert-danger" : "alert-success") alert-dismissible d-flex align-items-center gap-2">
+        <i class="bi @(statusIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")"></i>
+        @statusMessage
+        <button type="button" class="btn-close ms-auto" @onclick='() => statusMessage = null'></button>
+    </div>
+}
+
+<!-- Add Role Form -->
+@if (showAddForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-shield-plus me-2"></i>New Role
+        </div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Role Name</label>
+                    <input class="form-control" placeholder="e.g. Supervisor"
+                           @bind="newRoleName" @bind:event="oninput"
+                           @onkeydown="@(async e => { if (e.Key == "Enter") await AddRole(); })" />
+                    <div class="form-text">Use a clear, descriptive name. No spaces recommended.</div>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-success w-100" @onclick="AddRole"
+                            disabled="@string.IsNullOrWhiteSpace(newRoleName)">
+                        <i class="bi bi-check-lg me-1"></i>Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Roles Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th class="ps-4" style="width:60px;">#</th>
+                    <th>Role Name</th>
+                    <th>Users Assigned</th>
+                    <th class="text-end pe-4">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var role in roles)
+                {
+                    var count = userCounts.GetValueOrDefault(role.Id, 0);
+                    <tr>
+                        @if (editingRoleId == role.Id)
+                        {
+                            <td class="ps-4 text-muted">@role.Id</td>
+                            <td>
+                                <input class="form-control form-control-sm" style="max-width:280px;"
+                                       @bind="editRoleName"
+                                       @onkeydown="@(async e => { if (e.Key == "Enter") await SaveEdit(); })" />
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">@count user@(count != 1 ? "s" : "")</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-success me-1" @onclick="SaveEdit">
+                                    <i class="bi bi-check-lg"></i> Save
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                    Cancel
+                                </button>
+                            </td>
+                        }
+                        else
+                        {
+                            <td class="ps-4 text-muted small">@role.Id</td>
+                            <td>
+                                <span class="badge rounded-pill fs-6 @RoleBadgeClass(role.RoleName) me-2">
+                                    @role.RoleName
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    @count user@(count != 1 ? "s" : "")
+                                </span>
+                                @if (count > 0)
+                                {
+                                    <a class="btn btn-link btn-sm text-decoration-none ms-1 p-0"
+                                       href="/admin/users">
+                                        <small>view</small>
+                                    </a>
+                                }
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        @onclick="() => StartEdit(role)"
+                                        title="Rename role">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                @if (count == 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteRole(role.Id)"
+                                            title="Delete role">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-danger disabled"
+                                            title="Cannot delete — @count user(s) assigned">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                @if (!roles.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            No roles defined yet.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-info d-flex gap-2 mt-4 border-0 shadow-sm">
+    <i class="bi bi-info-circle-fill mt-1"></i>
+    <div>
+        <strong>Built-in roles:</strong> <code>Admin</code>, <code>Parent</code>, and <code>Child</code>
+        are the standard roles used by FamilyAI. Renaming them will affect login routing and access control.
+        Only delete roles that are not assigned to any users.
+    </div>
+</div>
+
+@code {
+    private List<Role> roles = new();
+    private Dictionary<int, int> userCounts = new();
+
+    private bool showAddForm;
+    private string newRoleName = string.Empty;
+
+    private int editingRoleId;
+    private string editRoleName = string.Empty;
+
+    private string? statusMessage;
+    private bool statusIsError;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        roles = await UserMgmt.GetAllRolesAsync();
+        userCounts = new Dictionary<int, int>();
+        foreach (var role in roles)
+            userCounts[role.Id] = await UserMgmt.GetUserCountForRoleAsync(role.Id);
+    }
+
+    private void ToggleAddForm()
+    {
+        showAddForm = !showAddForm;
+        newRoleName = string.Empty;
+    }
+
+    private async Task AddRole()
+    {
+        if (string.IsNullOrWhiteSpace(newRoleName))
+        { ShowStatus("Role name cannot be empty.", true); return; }
+
+        if (roles.Any(r => r.RoleName.Equals(newRoleName.Trim(), StringComparison.OrdinalIgnoreCase)))
+        { ShowStatus("A role with that name already exists.", true); return; }
+
+        await UserMgmt.CreateRoleAsync(newRoleName.Trim());
+        newRoleName = string.Empty;
+        showAddForm = false;
+        await LoadData();
+        ShowStatus("Role created successfully.");
+    }
+
+    private void StartEdit(Role role)
+    {
+        editingRoleId = role.Id;
+        editRoleName = role.RoleName;
+    }
+
+    private void CancelEdit() => editingRoleId = 0;
+
+    private async Task SaveEdit()
+    {
+        if (string.IsNullOrWhiteSpace(editRoleName))
+        { ShowStatus("Role name cannot be empty.", true); return; }
+
+        await UserMgmt.UpdateRoleAsync(editingRoleId, editRoleName.Trim());
+        editingRoleId = 0;
+        await LoadData();
+        ShowStatus("Role updated.");
+    }
+
+    private async Task DeleteRole(int id)
+    {
+        bool deleted = await UserMgmt.DeleteRoleAsync(id);
+        if (deleted)
+        {
+            await LoadData();
+            ShowStatus("Role deleted.");
+        }
+        else
+        {
+            ShowStatus("Cannot delete a role that still has users assigned.", true);
+        }
+    }
+
+    private string RoleBadgeClass(string role) => role switch
+    {
+        "Admin"  => "bg-danger",
+        "Parent" => "bg-info text-dark",
+        "Child"  => "bg-success",
+        _        => "bg-secondary"
+    };
+
+    private void ShowStatus(string msg, bool error = false)
+    { statusMessage = msg; statusIsError = error; }
+}

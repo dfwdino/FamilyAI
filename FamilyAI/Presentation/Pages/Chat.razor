@@ -1,126 +1,237 @@
-﻿@page "/chat"
+@page "/chat"
 @page "/chat/{ThreadId:int}"
 
-@using FamilyAI.Domain.Models
-@using FamilyAI.Infrastructure
-@using FamilyAI.Infrastructure.Services
-@using FamilyAI.Presentation.Layout
-@using Microsoft.AspNetCore.Components.Authorization
-
 @inject ChatLogService _chatLogService
+@inject AIChatService _aiChatService
+@inject PromptSettingService _promptSettingService
+@inject AuthStateService AuthStateService
 @inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
 @layout UserLayout
 
-@rendermode InteractiveServer
+<style>
+    .chat-bubble-user {
+        background: #0d6efd; color: #fff;
+        border-radius: 18px 18px 4px 18px;
+        max-width: 70%; padding: 10px 15px;
+        margin-left: auto;
+    }
+    .chat-bubble-ai {
+        background: #fff; color: #212529;
+        border-radius: 18px 18px 18px 4px;
+        max-width: 75%; padding: 10px 15px;
+        border: 1px solid #dee2e6;
+    }
+    .chat-window {
+        height: calc(100vh - 220px);
+        min-height: 300px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px;
+    }
+    .typing-indicator span {
+        display: inline-block; width: 8px; height: 8px;
+        border-radius: 50%; background: #6c757d;
+        margin: 0 2px;
+        animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @@keyframes bounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+    }
+</style>
 
+<div class="d-flex flex-column h-100">
+    <!-- Header -->
+    <div class="mb-3">
+        <h5 class="mb-0 fw-semibold">
+            <i class="bi bi-chat-dots text-primary me-2"></i>
+            @(logs.FirstOrDefault()?.Thread?.ThreadName ?? "New Conversation")
+        </h5>
+    </div>
 
-
-<div class="row">
-    <div class="col-md-6">
-        <h3>@logs.FirstOrDefault()?.Thread?.ThreadName</h3>
-        <div @ref="chatContainer" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
+    <!-- Messages -->
+    <div class="chat-window flex-grow-1 mb-3" @ref="chatContainer">
+        @if (!logs.Any() && !isThinking)
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-chat-heart" style="font-size:3rem; opacity:.3;"></i>
+                <p class="mt-2">Start a conversation!</p>
+            </div>
+        }
 
         @foreach (var log in logs)
         {
-
-            if (log.IsReply)
-            {
-                <div class="col-md-6" style="text-align:left;">@log.Text</div>
-              
-
-            }
-            else
-            {
-                <div class="col-md-6" style="text-align:right;color:blue">@log.Text</div>
-            }
-
-            <hr />
+            <div class="d-flex mb-3 @(log.IsReply ? "justify-content-start" : "justify-content-end")">
+                @if (log.IsReply)
+                {
+                    <div class="me-2 mt-1">
+                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                             style="width:32px;height:32px;">
+                            <i class="bi bi-robot text-white" style="font-size:.75rem;"></i>
+                        </div>
+                    </div>
+                    <div class="chat-bubble-ai">@log.Text</div>
+                }
+                else
+                {
+                    <div class="chat-bubble-user">@log.Text</div>
+                }
+            </div>
         }
+
+        @if (isThinking)
+        {
+            <div class="d-flex mb-3 justify-content-start">
+                <div class="me-2 mt-1">
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                         style="width:32px;height:32px;">
+                        <i class="bi bi-robot text-white" style="font-size:.75rem;"></i>
+                    </div>
+                </div>
+                <div class="chat-bubble-ai">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Input -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-2">
+            <div class="input-group">
+                <textarea class="form-control border-0 resize-none"
+                          rows="2"
+                          placeholder="Type your message..."
+                          @bind="inputText"
+                          @bind:event="oninput"
+                          @onkeydown="HandleKeyDown"
+                          disabled="@isThinking"
+                          style="resize:none;">
+                </textarea>
+                <button class="btn btn-primary px-4" @onclick="SendMessage" disabled="@isThinking">
+                    @if (isThinking)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-send-fill"></i>
+                    }
+                </button>
+            </div>
+            <small class="text-muted ms-1">Press Ctrl+Enter to send</small>
         </div>
     </div>
-</div>
-<div class="row">
-    <div class="col-md-6">
-
-        <p>
-            <InputTextArea class="form-control" @bind-Value="chatLogs.Text"></InputTextArea>
-            <button @onclick="@(() => AddChat())">submit</button>
-        </p>
-    </div>
-
 </div>
 
 <script>
     function scrollToBottom(element) {
-        element.scrollTop = element.scrollHeight;
+        if (element) element.scrollTop = element.scrollHeight;
     }
 </script>
 
-
 @code {
-    [Parameter]
-    public int ThreadId { get; set; } = 0;
+    [Parameter] public int ThreadId { get; set; } = 0;
 
-    ChatLog chatLogs = new ChatLog();
-    List<ChatLog> logs = new List<ChatLog>();
-    int userId;
+    private List<ChatLog> logs = new();
+    private string inputText = string.Empty;
+    private int userId;
     private ElementReference chatContainer;
-    private bool firstRender = true;
+    private bool isThinking;
+    private int _loadedThreadId = -1;
 
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        userId = AuthState.CurrentUser.UserId;
-        logs = await _chatLogService.GetChatLogsByThreadAsync(ThreadId);
-
-
+        userId = AuthStateService.CurrentUser?.UserId ?? 0;
     }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Runs on initial load AND whenever ThreadId route parameter changes
+        if (_loadedThreadId == ThreadId) return;
+        _loadedThreadId = ThreadId;
+
+        logs = new List<ChatLog>();
+        inputText = string.Empty;
+        isThinking = false;
+
+        var template = await _promptSettingService.GetActiveTemplateForUserAsync(userId);
+        var systemPrompt = template?.Content ?? FamilyAI.Infrastructure.configuration.PromptTemplates.Educational;
+
+        if (ThreadId != 0)
+        {
+            logs = await _chatLogService.GetChatLogsByThreadAsync(ThreadId);
+        }
+
+        _aiChatService.Initialize(systemPrompt, logs);
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
+            await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && e.CtrlKey)
+            await SendMessage();
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(inputText) || isThinking) return;
+
+        var messageText = inputText.Trim();
+        inputText = string.Empty;
+        isThinking = true;
+
+        var userLog = new ChatLog
         {
-            // Scroll to bottom on first load
+            UserId = userId, ThreadId = ThreadId,
+            Text = messageText, IsReply = false,
+            EntryTime = DateTime.UtcNow, IsDeleted = false
+        };
+
+        var savedUserLog = await _chatLogService.AddChatLogAsync(userLog);
+
+        if (ThreadId == 0)
+        {
+            ThreadId = savedUserLog.ThreadId;
+            NavigationManager.NavigateTo($"/chat/{ThreadId}", false);
+        }
+
+        logs.Add(savedUserLog);
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
+
+        try
+        {
+            var aiResponse = await _aiChatService.ChatWithAIAsync(messageText);
+            var aiLog = await _chatLogService.AddChatLogAsync(userId, ThreadId, aiResponse, isReply: true);
+            logs.Add(aiLog);
+        }
+        catch
+        {
+            logs.Add(new ChatLog
+            {
+                UserId = userId, ThreadId = ThreadId,
+                Text = "Sorry, I couldn't connect to the AI right now. Please try again.",
+                IsReply = true, EntryTime = DateTime.UtcNow, IsDeleted = false
+            });
+        }
+        finally
+        {
+            isThinking = false;
+            StateHasChanged();
             await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
         }
     }
-
-
-    private async void AddChat()
-    {
-
-        var newMessage = new ChatLog
-        {
-            EntryTime = DateTime.Now,
-            IsReply = false,
-            UserId = userId,
-            Text = chatLogs.Text  // Copy the text from the input
-        };
-
-        if(ThreadId != 0)
-        {
-            newMessage.ThreadId = ThreadId;
-        }
-
-
-
-        logs.Add(newMessage);
-
-
-        await _chatLogService.AddChatLogAsync(newMessage);
-
-        AIChatService aIChatService = new AIChatService();
-
-
-     
-        chatLogs.Text = string.Empty;
-
-        // Force UI update
-        StateHasChanged();
-
-        // Scroll to bottom after the UI updates
-        await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
-    }
-
-
 }

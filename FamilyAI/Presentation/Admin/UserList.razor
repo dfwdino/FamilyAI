@@ -1,0 +1,477 @@
+@page "/admin/users"
+@layout AdminLayout
+@inject UserManagementService UserMgmt
+
+<PageTitle>User Management — FamilyAI</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">User Management</h2>
+        <small class="text-muted">Add, edit and link users</small>
+    </div>
+    <button class="btn @(showAddForm ? "btn-outline-secondary" : "btn-primary")" @onclick="ToggleAddForm">
+        @if (showAddForm)
+        {
+            <i class="bi bi-x-lg me-1"></i><span>Cancel</span>
+        }
+        else
+        {
+            <i class="bi bi-person-plus-fill me-1"></i><span>Add User</span>
+        }
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(statusIsError ? "alert-danger" : "alert-success") alert-dismissible d-flex align-items-center gap-2">
+        <i class="bi @(statusIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")"></i>
+        @statusMessage
+        <button type="button" class="btn-close ms-auto" @onclick='() => statusMessage = null'></button>
+    </div>
+}
+
+<!-- Add User Form -->
+@if (showAddForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-person-plus me-2"></i>New User
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Full Name</label>
+                    <input class="form-control" placeholder="e.g. Jane Doe" @bind="newName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Username</label>
+                    <input class="form-control" placeholder="e.g. jane" @bind="newUsername" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Password</label>
+                    <input class="form-control" type="password" placeholder="••••••••" @bind="newPassword" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Role</label>
+                    <select class="form-select" @bind="newRoleId">
+                        <option value="0">-- Select --</option>
+                        @foreach (var role in roles)
+                        {
+                            <option value="@role.Id">@role.RoleName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="AddUser">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Users Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th class="ps-4">Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th class="text-end pe-4">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in users)
+                {
+                    <tr>
+                        @if (editingUserId == user.Id)
+                        {
+                            <td class="ps-4">
+                                <input class="form-control form-control-sm" @bind="editName" />
+                            </td>
+                            <td>
+                                <input class="form-control form-control-sm" @bind="editUsername" />
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm" @bind="editRoleId">
+                                    @foreach (var role in roles)
+                                    {
+                                        <option value="@role.Id">@role.RoleName</option>
+                                    }
+                                </select>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-success me-1" @onclick="SaveEdit">
+                                    <i class="bi bi-check-lg"></i> Save
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                    Cancel
+                                </button>
+                            </td>
+                        }
+                        else
+                        {
+                            <td class="ps-4 fw-semibold">
+                                <i class="bi bi-person-circle text-muted me-2"></i>@user.Name
+                            </td>
+                            <td class="text-muted">@@@user.Username</td>
+                            <td>
+                                <span class="badge rounded-pill @RoleBadgeClass(user.RoleName)">
+                                    @user.RoleName
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => StartEdit(user)"
+                                        title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => StartResetPassword(user.Id)"
+                                        title="Reset Password">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                @if (user.RoleName == "Parent")
+                                {
+                                    <button class="btn btn-sm btn-outline-info me-1"
+                                            @onclick="() => ManageChildren(user.Id)"
+                                            title="Manage linked children">
+                                        <i class="bi bi-people"></i> Children
+                                    </button>
+                                }
+                                @if (user.RoleName == "Child")
+                                {
+                                    <button class="btn btn-sm btn-outline-info me-1"
+                                            @onclick="() => ManageParents(user.Id)"
+                                            title="Manage linked parents">
+                                        <i class="bi bi-person-badge"></i> Parents
+                                    </button>
+                                }
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(user.Id)"
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        }
+                    </tr>
+
+                    @if (resetPasswordUserId == user.Id)
+                    {
+                        <tr class="table-warning">
+                            <td colspan="4" class="ps-4">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-key-fill text-warning"></i>
+                                    <span>New password for <strong>@user.Name</strong>:</span>
+                                    <input class="form-control form-control-sm" style="width:200px;"
+                                           type="password" @bind="resetPasswordValue" />
+                                    <button class="btn btn-sm btn-success" @onclick="SaveResetPassword">Save</button>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            @onclick='() => resetPasswordUserId = 0'>Cancel</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                @if (!users.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            No users found. Add one above.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Link panel: Children of a Parent -->
+@if (managingParentId > 0)
+{
+    var parent = users.FirstOrDefault(u => u.Id == managingParentId);
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center bg-info bg-opacity-10">
+            <span class="fw-semibold">
+                <i class="bi bi-people-fill text-info me-2"></i>
+                Children linked to <strong>@parent?.Name</strong>
+                <small class="text-muted ms-2">— check to link, uncheck to unlink</small>
+            </span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => managingParentId = 0'>
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            @if (!allChildren.Any())
+            {
+                <p class="text-muted mb-0">No children exist yet. Add users with the Child role first.</p>
+            }
+            else
+            {
+                <div class="row g-2">
+                    @foreach (var child in allChildren)
+                    {
+                        var linked = linkedChildIds.Contains(child.Id);
+                        <div class="col-sm-6 col-md-4">
+                            <div class="form-check border rounded p-3 @(linked ? "border-success bg-success bg-opacity-10" : "")">
+                                <input class="form-check-input" type="checkbox"
+                                       id="child_@child.Id" checked="@linked"
+                                       @onchange="async e => await ToggleChildLink(child.Id, Convert.ToBoolean(e.Value))" />
+                                <label class="form-check-label ms-1" for="child_@child.Id">
+                                    <span class="fw-semibold">@child.Name</span><br />
+                                    <small class="text-muted">@@@child.Username</small>
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Link panel: Parents of a Child -->
+@if (managingChildId > 0)
+{
+    var child = users.FirstOrDefault(u => u.Id == managingChildId);
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center bg-info bg-opacity-10">
+            <span class="fw-semibold">
+                <i class="bi bi-person-badge-fill text-info me-2"></i>
+                Parents linked to <strong>@child?.Name</strong>
+                <small class="text-muted ms-2">— check to link, uncheck to unlink</small>
+            </span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => managingChildId = 0'>
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            @if (!allParents.Any())
+            {
+                <p class="text-muted mb-0">No parents exist yet. Add users with the Parent role first.</p>
+            }
+            else
+            {
+                <div class="row g-2">
+                    @foreach (var parent in allParents)
+                    {
+                        var linked = linkedParentIds.Contains(parent.Id);
+                        <div class="col-sm-6 col-md-4">
+                            <div class="form-check border rounded p-3 @(linked ? "border-success bg-success bg-opacity-10" : "")">
+                                <input class="form-check-input" type="checkbox"
+                                       id="parent_@parent.Id" checked="@linked"
+                                       @onchange="async e => await ToggleParentLink(parent.Id, Convert.ToBoolean(e.Value))" />
+                                <label class="form-check-label ms-1" for="parent_@parent.Id">
+                                    <span class="fw-semibold">@parent.Name</span><br />
+                                    <small class="text-muted">@@@parent.Username</small>
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserDto> users = new();
+    private List<UserDto> allChildren = new();
+    private List<UserDto> allParents = new();
+    private List<Role> roles = new();
+    private List<int> linkedChildIds = new();
+    private List<int> linkedParentIds = new();
+
+    private bool showAddForm;
+    private string newName = string.Empty, newUsername = string.Empty, newPassword = string.Empty;
+    private int newRoleId;
+
+    private int editingUserId;
+    private string editName = string.Empty, editUsername = string.Empty;
+    private int editRoleId;
+
+    private int resetPasswordUserId;
+    private string resetPasswordValue = string.Empty;
+
+    private int managingParentId;
+    private int managingChildId;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        try
+        {
+            users       = await UserMgmt.GetAllUsersAsync();
+            roles       = await UserMgmt.GetAllRolesAsync();
+            allChildren = await UserMgmt.GetAllChildrenAsync();
+            allParents  = await UserMgmt.GetAllParentsAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error loading data: {ex.Message}", true);
+        }
+    }
+
+    private string RoleBadgeClass(string role) => role switch
+    {
+        "Admin"  => "bg-danger",
+        "Parent" => "bg-info text-dark",
+        "Child"  => "bg-success",
+        _        => "bg-secondary"
+    };
+
+    private void ToggleAddForm()
+    {
+        showAddForm = !showAddForm;
+        newName = newUsername = newPassword = string.Empty;
+        newRoleId = 0;
+    }
+
+    private async Task AddUser()
+    {
+        if (string.IsNullOrWhiteSpace(newName) || string.IsNullOrWhiteSpace(newUsername) ||
+            string.IsNullOrWhiteSpace(newPassword) || newRoleId == 0)
+        { ShowStatus("All fields are required.", true); return; }
+
+        try
+        {
+            await UserMgmt.CreateUserAsync(newName, newUsername, newPassword, newRoleId);
+            showAddForm = false;
+            await LoadData();
+            ShowStatus("User created successfully.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error creating user: {ex.Message}", true);
+        }
+    }
+
+    private void StartEdit(UserDto user)
+    {
+        editingUserId = user.Id; editName = user.Name;
+        editUsername = user.Username; editRoleId = user.RoleId;
+        resetPasswordUserId = 0; managingParentId = 0;
+    }
+
+    private void CancelEdit() => editingUserId = 0;
+
+    private async Task SaveEdit()
+    {
+        if (string.IsNullOrWhiteSpace(editName) || string.IsNullOrWhiteSpace(editUsername) || editRoleId == 0)
+        { ShowStatus("All fields are required.", true); return; }
+
+        try
+        {
+            await UserMgmt.UpdateUserAsync(editingUserId, editName, editUsername, editRoleId);
+            editingUserId = 0;
+            await LoadData();
+            ShowStatus("User updated.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error updating user: {ex.Message}", true);
+        }
+    }
+
+    private void StartResetPassword(int id)
+    {
+        resetPasswordUserId = id; resetPasswordValue = string.Empty; editingUserId = 0;
+    }
+
+    private async Task SaveResetPassword()
+    {
+        if (string.IsNullOrWhiteSpace(resetPasswordValue))
+        { ShowStatus("Password cannot be empty.", true); return; }
+
+        try
+        {
+            await UserMgmt.ResetPasswordAsync(resetPasswordUserId, resetPasswordValue);
+            resetPasswordUserId = 0;
+            ShowStatus("Password reset successfully.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error resetting password: {ex.Message}", true);
+        }
+    }
+
+    private async Task DeleteUser(int id)
+    {
+        try
+        {
+            await UserMgmt.DeleteUserAsync(id);
+            await LoadData();
+            ShowStatus("User deleted.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error deleting user: {ex.Message}", true);
+        }
+    }
+
+    private async Task ManageChildren(int parentId)
+    {
+        try
+        {
+            managingParentId = parentId;
+            managingChildId  = 0;
+            editingUserId = resetPasswordUserId = 0;
+            linkedChildIds = await UserMgmt.GetLinkedChildIdsAsync(parentId);
+        }
+        catch (Exception ex)
+        {
+            managingParentId = 0;
+            ShowStatus($"Error loading linked children: {ex.Message}", true);
+        }
+    }
+
+    private async Task ToggleChildLink(int childId, bool link)
+    {
+        try
+        {
+            if (link) await UserMgmt.LinkParentToChildAsync(managingParentId, childId);
+            else      await UserMgmt.UnlinkParentFromChildAsync(managingParentId, childId);
+            linkedChildIds = await UserMgmt.GetLinkedChildIdsAsync(managingParentId);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error updating link: {ex.Message}", true);
+        }
+    }
+
+    private async Task ManageParents(int childId)
+    {
+        try
+        {
+            managingChildId  = childId;
+            managingParentId = 0;
+            editingUserId = resetPasswordUserId = 0;
+            linkedParentIds = await UserMgmt.GetLinkedParentIdsAsync(childId);
+        }
+        catch (Exception ex)
+        {
+            managingChildId = 0;
+            ShowStatus($"Error loading linked parents: {ex.Message}", true);
+        }
+    }
+
+    private async Task ToggleParentLink(int parentId, bool link)
+    {
+        try
+        {
+            if (link) await UserMgmt.LinkParentToChildAsync(parentId, managingChildId);
+            else      await UserMgmt.UnlinkParentFromChildAsync(parentId, managingChildId);
+            linkedParentIds = await UserMgmt.GetLinkedParentIdsAsync(managingChildId);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error updating link: {ex.Message}", true);
+        }
+    }
+
+    private void ShowStatus(string msg, bool error = false)
+    { statusMessage = msg; statusIsError = error; }
+}

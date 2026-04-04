@@ -1,41 +1,69 @@
-@page "/UserMenu"
-@using FamilyAI.Domain.Models
-@using FamilyAI.Infrastructure.Services
-@using FamilyAI.Presentation.Layout
 @using Microsoft.AspNetCore.Components.Authorization
-@layout UserLayout
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 
 @inject ThreadService threadService
+@inject AuthStateService AuthStateService
+@inject NavigationManager NavigationManager
+@inject ProtectedLocalStorage Storage
 
-@rendermode InteractiveServer
+@implements IDisposable
 
-<CascadingAuthenticationState>
+<ul class="nav flex-column px-1">
+    @foreach (var thread in threadModels)
+    {
+        var isActive = NavigationManager.Uri.Contains($"/chat/{thread.Id}");
+        <li class="nav-item">
+            <a class="nav-link @(isActive ? "active" : "")" href="chat/@thread.Id">
+                <i class="bi bi-chat-left-text me-1"></i>
+                <span class="text-truncate" style="max-width:160px;display:inline-block;vertical-align:middle;">
+                    @thread.ThreadName
+                </span>
+            </a>
+        </li>
+    }
+    @if (!threadModels.Any())
+    {
+        <li class="px-3 py-2">
+            <small class="text-white-50">No chats yet. Start one!</small>
+        </li>
+    }
+</ul>
 
-<AuthorizeView Roles="Admin">
-    <Authorized>
-
-            <ul>
-                @foreach (var thread in threadModels)
-                {
-                    <li style="color:white"><a href="UserLayout/@thread.Id"> @thread.ThreadName</a></li>
-                }
-
-            </ul>
-                     </Authorized>
-    <NotAuthorized>
-        <p>You do not have access to this page.</p>
-    </NotAuthorized>
-</AuthorizeView>
-</CascadingAuthenticationState>
+<hr class="border-secondary mt-3" />
+<button class="btn btn-outline-light btn-sm w-100" @onclick="Logout">
+    <i class="bi bi-box-arrow-left me-1"></i> Log Out
+</button>
 
 @code {
-    List<ThreadModel> threadModels = new List<ThreadModel>();
-    int userId = 1;
+    private List<ThreadModel> threadModels = new();
 
     protected override void OnInitialized()
     {
-        userId = AuthState.CurrentUser.UserId;
-        threadModels = threadService.GetAllThreadsByUser(userId);
+        LoadThreads();
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void LoadThreads()
+    {
+        if (AuthStateService.CurrentUser != null)
+            threadModels = threadService.GetAllThreadsByUser(AuthStateService.CurrentUser.UserId);
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        LoadThreads();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Logout()
+    {
+        await Storage.DeleteAsync("familyai_uid");
+        AuthStateService.Logout();
+        NavigationManager.NavigateTo("/", true);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

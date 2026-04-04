@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-ChildItem -Recurse -Filter ''*.razor'' | ForEach-Object { \\(Get-Content $_FullName\\) -replace ''@rendermode InteractiveServer\\\\r?\\\\n'', '''' | Set-Content $_FullName }\")",
+      "Bash(sqlcmd -S localhost -d FamilyAI -E -Q \":*)",
+      "Bash(sqlcmd -S localhost -d FamilyAI -E -i \"C:\\\\Users\\\\Shane\\\\source\\\\repos\\\\FamilyAI\\\\FamilyAIDB\\\\Scripts\\\\Migration_AddPromptSettings.sql\")"
+    ]
+  }
+}

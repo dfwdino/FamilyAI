@@ -18,11 +18,31 @@ namespace FamilyAI.Infrastructure.Services
 
         public List<ThreadModel> GetAllThreadsByUser(int userid)
         {
-            var threads = myDbContext.Threads
-                            .AsNoTracking()
-                            .Where(tt => tt.UserId.Equals(userid));
+            return myDbContext.Threads
+                .AsNoTracking()
+                .Where(tt => tt.UserId == userid && !tt.IsDeleted)
+                .OrderByDescending(tt => tt.Id)
+                .ToList();
+        }
 
-            return threads.ToList();
+        public async Task<bool> DeleteThreadAsync(int threadId)
+        {
+            var thread = await myDbContext.Threads
+                .FirstOrDefaultAsync(t => t.Id == threadId && !t.IsDeleted);
+
+            if (thread == null) return false;
+
+            // Soft-delete all messages in the thread too
+            var logs = await myDbContext.ChatLogs
+                .Where(cl => cl.ThreadId == threadId && !cl.IsDeleted)
+                .ToListAsync();
+
+            foreach (var log in logs)
+                log.IsDeleted = true;
+
+            thread.IsDeleted = true;
+            await myDbContext.SaveChangesAsync();
+            return true;
         }
 
 

@@ -1,8 +1,3 @@
-﻿namespace FamilyAI.Domain.Models
-{
-    public static class AuthState
-    {
-        public static AuthenticatedUser? CurrentUser { get; set; }
-        public static void Logout() => CurrentUser = null;
-    }
-}
+// AuthState has been replaced by the scoped AuthStateService.
+// Inject AuthStateService in your components instead of using this static class.
+namespace FamilyAI.Domain.Models { }

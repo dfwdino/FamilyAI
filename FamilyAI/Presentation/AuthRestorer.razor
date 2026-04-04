@@ -1,0 +1,28 @@
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage Storage
+@inject UserServices UserSvc
+@inject AuthStateService AuthStateService
+
+@* Invisible component — runs on every circuit start to restore session from browser storage *@
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || AuthStateService.CurrentUser != null) return;
+
+        try
+        {
+            var stored = await Storage.GetAsync<int>("familyai_uid");
+            if (stored.Success && stored.Value > 0)
+            {
+                var user = await UserSvc.GetAuthenticatedUserByIdAsync(stored.Value);
+                if (user != null)
+                    AuthStateService.SetUser(user);
+            }
+        }
+        catch
+        {
+            // Storage not yet available or tampered — silently ignore
+        }
+    }
+}
