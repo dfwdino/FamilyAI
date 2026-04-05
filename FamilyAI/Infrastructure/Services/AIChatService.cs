@@ -7,14 +7,17 @@ namespace FamilyAI.Infrastructure.Services
 {
     public class AIChatService
     {
-        private readonly ChatAIModel _chatAISettings = new ChatAIModel("http://localhost:11434/", "llama3.2-vision");
-        private readonly IChatClient _chatClient;
+        private readonly OllamaSettingService _ollamaSettingService;
+        private IChatClient? _chatClient;
         private List<ChatMessage> _chatHistory;
 
-        public AIChatService()
+        // Fallback defaults if no DB setting exists yet
+        private const string DefaultUrl = "http://localhost:11434/";
+        private const string DefaultModel = "llama3.2-vision";
+
+        public AIChatService(OllamaSettingService ollamaSettingService)
         {
-            _chatClient = new OllamaApiClient(new Uri(_chatAISettings.BrandUri), _chatAISettings.ModelName);
-            // Default to the Educational prompt until Initialize() is called
+            _ollamaSettingService = ollamaSettingService;
             _chatHistory = new List<ChatMessage>
             {
                 new ChatMessage(ChatRole.System, PromptTemplates.Educational)
@@ -22,11 +25,17 @@ namespace FamilyAI.Infrastructure.Services
         }
 
         /// <summary>
-        /// Sets the system prompt and loads existing conversation history.
-        /// Call this before sending any messages when opening a chat.
+        /// Loads the active Ollama config from DB, sets the system prompt, and loads existing history.
+        /// Must be awaited before calling ChatWithAIAsync.
         /// </summary>
-        public void Initialize(string systemPrompt, List<ChatLog> existingLogs)
+        public async Task InitializeAsync(string systemPrompt, List<ChatLog> existingLogs)
         {
+            var setting = await _ollamaSettingService.GetActiveSettingAsync();
+            var url = setting?.ModelUrl ?? DefaultUrl;
+            var modelName = setting?.ModelName ?? DefaultModel;
+
+            _chatClient = new OllamaApiClient(new Uri(url), modelName);
+
             _chatHistory = new List<ChatMessage>
             {
                 new ChatMessage(ChatRole.System, systemPrompt)
@@ -43,6 +52,9 @@ namespace FamilyAI.Infrastructure.Services
         {
             if (string.IsNullOrWhiteSpace(userInput))
                 return string.Empty;
+
+            // Fallback client in case InitializeAsync was never called
+            _chatClient ??= new OllamaApiClient(new Uri(DefaultUrl), DefaultModel);
 
             _chatHistory.Add(new ChatMessage(ChatRole.User, userInput));
 

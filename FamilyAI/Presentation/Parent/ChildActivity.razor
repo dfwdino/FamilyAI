@@ -42,7 +42,7 @@ else
             <div class="card-body d-flex align-items-center gap-3 py-3">
                 <i class="bi bi-sliders text-primary fs-5"></i>
                 <div class="flex-grow-1">
-                    <div class="fw-semibold mb-1" style="font-size:0.9rem;">AI Learning Style</div>
+                    <div class="fw-semibold mb-1" style="font-size:0.9rem;">AI Learning Style <small class="text-muted fw-normal">(applies to all kids)</small></div>
                     <div class="d-flex align-items-center gap-2">
                         <select class="form-select form-select-sm" style="max-width:260px;"
                                 value="@activeTemplateId"
@@ -182,6 +182,7 @@ else
     private string? statusMessage;
     private bool statusIsError;
 
+    private List<UserDto> allChildren = new();
     private List<PromptTemplate> allTemplates = new();
     private int activeTemplateId;
     private bool promptSaved;
@@ -190,8 +191,8 @@ else
     {
         if (AuthStateService.CurrentUser == null) return;
 
-        var myChildren = await UserMgmt.GetChildrenForParentAsync(AuthStateService.CurrentUser.UserId);
-        childInfo = myChildren.FirstOrDefault(c => c.Id == ChildId);
+        allChildren = await UserMgmt.GetChildrenForParentAsync(AuthStateService.CurrentUser.UserId);
+        childInfo = allChildren.FirstOrDefault(c => c.Id == ChildId);
 
         if (childInfo == null)
         {
@@ -225,7 +226,8 @@ else
         try
         {
             activeTemplateId = templateId;
-            await PromptSvc.SetActiveTemplateForUserAsync(ChildId, templateId);
+            foreach (var child in allChildren)
+                await PromptSvc.SetActiveTemplateForUserAsync(child.Id, templateId);
             promptSaved = true;
             StateHasChanged();
             await Task.Delay(2000);

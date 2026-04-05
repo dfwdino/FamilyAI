@@ -120,10 +120,25 @@
                                         </span>
                                     }
                                 </div>
-                                <pre class="text-muted mb-0" style="font-size:0.8rem;white-space:pre-wrap;max-height:80px;overflow:hidden;">@t.Content</pre>
-                                @if (t.Content.Length > 200)
+                                @{
+                                    bool isExpanded = expandedIds.Contains(t.Id);
+                                    bool isLong = t.Content.Length > 200;
+                                }
+                                <pre class="text-muted mb-0"
+                                     style="font-size:0.8rem;white-space:pre-wrap;@(isLong && !isExpanded ? "max-height:80px;overflow:hidden;" : "")">@t.Content</pre>
+                                @if (isLong)
                                 {
-                                    <small class="text-muted fst-italic">…truncated for preview</small>
+                                    <button class="btn btn-link btn-sm text-decoration-none p-0 mt-1"
+                                            @onclick="() => ToggleExpand(t.Id)">
+                                        @if (isExpanded)
+                                        {
+                                            <i class="bi bi-chevron-up me-1"></i><span>View Less</span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-chevron-down me-1"></i><span>View More</span>
+                                        }
+                                    </button>
                                 }
                             </div>
                             <div class="d-flex gap-2 flex-shrink-0">
@@ -174,6 +189,7 @@
 @code {
     private List<PromptTemplate> templates = new();
     private Dictionary<int, int> usageCounts = new();
+    private HashSet<int> expandedIds = new();
 
     private bool showAddForm;
     private string newName = string.Empty;
@@ -197,6 +213,12 @@
         usageCounts = new Dictionary<int, int>();
         foreach (var t in templates)
             usageCounts[t.Id] = await PromptSvc.GetUsageCountAsync(t.Id);
+    }
+
+    private void ToggleExpand(int id)
+    {
+        if (!expandedIds.Remove(id))
+            expandedIds.Add(id);
     }
 
     private void ToggleAddForm()

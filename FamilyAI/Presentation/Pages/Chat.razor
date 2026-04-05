@@ -4,6 +4,7 @@
 @inject ChatLogService _chatLogService
 @inject AIChatService _aiChatService
 @inject PromptSettingService _promptSettingService
+@inject PendingAiTracker _pendingTracker
 @inject AuthStateService AuthStateService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -15,14 +16,17 @@
         background: #0d6efd; color: #fff;
         border-radius: 18px 18px 4px 18px;
         max-width: 70%; padding: 10px 15px;
-        margin-left: auto;
+        word-break: break-word;
     }
     .chat-bubble-ai {
         background: #fff; color: #212529;
         border-radius: 18px 18px 18px 4px;
         max-width: 75%; padding: 10px 15px;
         border: 1px solid #dee2e6;
+        word-break: break-word;
     }
+    .bubble-row-user { display: flex; justify-content: flex-end; }
+    .bubble-row-ai   { display: flex; justify-content: flex-start; }
     .chat-window {
         height: calc(100vh - 220px);
         min-height: 300px;
@@ -30,6 +34,10 @@
         background: #f8f9fa;
         border-radius: 12px;
         padding: 16px;
+    }
+    @@media (max-width: 767.98px) {
+        .chat-window { height: calc(100svh - 230px); min-height: 200px; }
+        .chat-bubble-user, .chat-bubble-ai { max-width: 85%; }
     }
     .typing-indicator span {
         display: inline-block; width: 8px; height: 8px;
@@ -44,6 +52,25 @@
         40% { transform: scale(1); }
     }
 </style>
+
+@if (_toastMessage != null)
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999;">
+        <div class="toast show align-items-center text-white bg-primary border-0 shadow" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-robot me-2"></i> @_toastMessage
+                    @if (_toastThreadId > 0)
+                    {
+                        <a href="chat/@_toastThreadId" class="text-white fw-bold ms-2">View →</a>
+                    }
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        @onclick="() => { _toastMessage = null; _toastThreadId = 0; }"></button>
+            </div>
+        </div>
+    </div>
+}
 
 <div class="d-flex flex-column h-100">
     <!-- Header -->
@@ -66,22 +93,30 @@
 
         @foreach (var log in logs)
         {
-            <div class="d-flex mb-3 @(log.IsReply ? "justify-content-start" : "justify-content-end")">
-                @if (log.IsReply)
-                {
-                    <div class="me-2 mt-1">
+            @if (log.IsReply)
+            {
+                <div class="bubble-row-ai mb-3">
+                    <div class="me-2 mt-1 flex-shrink-0">
                         <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
                              style="width:32px;height:32px;">
                             <i class="bi bi-robot text-white" style="font-size:.75rem;"></i>
                         </div>
                     </div>
-                    <div class="chat-bubble-ai">@log.Text</div>
-                }
-                else
-                {
-                    <div class="chat-bubble-user">@log.Text</div>
-                }
-            </div>
+                    <div class="d-flex flex-column">
+                        <div class="chat-bubble-ai">@log.Text</div>
+                        <small class="text-muted mt-1 ms-1" style="font-size:0.7rem;">@FormatTime(log.EntryTime)</small>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="bubble-row-user mb-3">
+                    <div class="d-flex flex-column align-items-end">
+                        <div class="chat-bubble-user">@log.Text</div>
+                        <small class="text-muted mt-1 me-1" style="font-size:0.7rem;">@FormatTime(log.EntryTime)</small>
+                    </div>
+                </div>
+            }
         }
 
         @if (isThinking)
@@ -149,13 +184,15 @@
     private bool isThinking;
     private bool _isSending;
     private int _loadedThreadId = -1;
+    private int _selfNavToThreadId = -1;
+    private string? _toastMessage;
+    private int _toastThreadId;
 
     protected override void OnInitialized()
     {
         userId = AuthStateService.CurrentUser?.UserId ?? 0;
-        // Subscribe so that when AuthRestorer restores the session on direct URL load,
-        // we reload the chat with the correct userId.
         AuthStateService.OnAuthStateChanged += OnAuthRestored;
+        _pendingTracker.OnAiResponded += OnAiRespondedElsewhere;
     }
 
     private void OnAuthRestored()
@@ -179,11 +216,17 @@
         if (_loadedThreadId == ThreadId) return;
         _loadedThreadId = ThreadId;
 
-        if (!_isSending)
+        // Only skip reset if THIS navigation was triggered by our own first-send NavigateTo
+        bool isSelfNavigation = _isSending && ThreadId == _selfNavToThreadId;
+        _selfNavToThreadId = -1;
+
+        if (!isSelfNavigation)
         {
+            // User manually navigated — reset everything so new thread loads cleanly
             logs = new List<ChatLog>();
             inputText = string.Empty;
-            isThinking = false;
+            isThinking = _pendingTracker.IsPending(ThreadId); // restore indicator if AI still running
+            _isSending = isThinking;
         }
 
         var template = await _promptSettingService.GetActiveTemplateForUserAsync(userId);
@@ -194,18 +237,45 @@
             logs = await _chatLogService.GetChatLogsByThreadAsync(ThreadId);
         }
 
-        _aiChatService.Initialize(systemPrompt, logs);
+        await _aiChatService.InitializeAsync(systemPrompt, logs);
+    }
+
+    private void OnAiRespondedElsewhere(int threadId, string threadName)
+    {
+        if (threadId == ThreadId) return; // same thread, no toast needed
+        InvokeAsync(() =>
+        {
+            _toastMessage = $"AI replied in \"{threadName}\"";
+            _toastThreadId = threadId;
+            StateHasChanged();
+            // Auto-dismiss after 8 seconds
+            _ = Task.Delay(8000).ContinueWith(_ => InvokeAsync(() =>
+            {
+                _toastMessage = null;
+                _toastThreadId = 0;
+                StateHasChanged();
+            }));
+        });
     }
 
     public void Dispose()
     {
         AuthStateService.OnAuthStateChanged -= OnAuthRestored;
+        _pendingTracker.OnAiResponded -= OnAiRespondedElsewhere;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
             await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
+    }
+
+    private string FormatTime(DateTime utcTime)
+    {
+        var local = utcTime.ToLocalTime();
+        return local.Date == DateTime.Today
+            ? local.ToString("h:mm tt")
+            : local.ToString("MMM d, h:mm tt");
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
@@ -235,6 +305,7 @@
         if (ThreadId == 0)
         {
             ThreadId = savedUserLog.ThreadId;
+            _selfNavToThreadId = ThreadId; // mark so OnParametersSetAsync skips reset
             NavigationManager.NavigateTo($"chat/{ThreadId}", false);
         }
 
@@ -245,6 +316,10 @@
         // Run AI call in background so the circuit stays responsive for navigation/clicks
         var capturedThreadId = ThreadId;
         var capturedUserId = userId;
+        var capturedThreadName = logs.FirstOrDefault(l => l.Thread?.ThreadName != null)?.Thread?.ThreadName
+                                 ?? $"Chat #{capturedThreadId}";
+        _pendingTracker.SetPending(capturedThreadId, capturedThreadName);
+
         _ = Task.Run(async () =>
         {
             ChatLog? aiLog = null;
@@ -255,8 +330,17 @@
             }
             catch { }
 
+            _pendingTracker.SetResponded(capturedThreadId); // fires toast if user is on different thread
+
             await InvokeAsync(async () =>
             {
+                // If user navigated to a different thread, don't pollute the current view
+                if (ThreadId != capturedThreadId)
+                {
+                    _isSending = false;
+                    isThinking = false;
+                    return;
+                }
                 logs.Add(aiLog ?? new ChatLog
                 {
                     UserId = capturedUserId, ThreadId = capturedThreadId,

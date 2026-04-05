@@ -1,0 +1,427 @@
+@page "/admin/ollama"
+@layout AdminLayout
+@inject OllamaSettingService OllamaSvc
+
+<PageTitle>AI Settings — FamilyAI</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">AI Settings</h2>
+        <small class="text-muted">Configure Ollama server URL and model</small>
+    </div>
+    <button class="btn @(showAddForm ? "btn-outline-secondary" : "btn-primary")" @onclick="ToggleAddForm">
+        @if (showAddForm)
+        {
+            <i class="bi bi-x-lg me-1"></i><span>Cancel</span>
+        }
+        else
+        {
+            <i class="bi bi-plus-lg me-1"></i><span>New Configuration</span>
+        }
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(statusIsError ? "alert-danger" : "alert-success") alert-dismissible d-flex align-items-center gap-2 mb-4">
+        <i class="bi @(statusIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")"></i>
+        @statusMessage
+        <button type="button" class="btn-close ms-auto" @onclick='() => statusMessage = null'></button>
+    </div>
+}
+
+@if (showAddForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-plus-circle me-2"></i>New AI Configuration
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Configuration Name</label>
+                <input class="form-control" placeholder="e.g. Local Llama, Remote GPU Server" @bind="newName" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Ollama Server URL</label>
+                <div class="input-group">
+                    <input class="form-control font-monospace" placeholder="http://localhost:11434/"
+                           @bind="newUrl" @bind:event="oninput" />
+                    <button class="btn btn-outline-secondary" @onclick="LoadNewModels" disabled="@isLoadingNew">
+                        @if (isLoadingNew)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cloud-download me-1"></i>
+                        }
+                        Load Models
+                    </button>
+                </div>
+                <small class="text-muted">Enter the URL then click "Load Models" to fetch available models from that server.</small>
+            </div>
+            @if (newModelList.Any())
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Select Model</label>
+                    <select class="form-select" @bind="newModel">
+                        <option value="">— pick a model —</option>
+                        @foreach (var m in newModelList)
+                        {
+                            <option value="@m">@m</option>
+                        }
+                    </select>
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Model Name</label>
+                    <input class="form-control font-monospace" placeholder="e.g. llama3.2-vision" @bind="newModel" />
+                    <small class="text-muted">Enter manually, or use "Load Models" to browse what's installed.</small>
+                </div>
+            }
+            @if (newLoadError)
+            {
+                <div class="alert alert-warning py-2 mb-3">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Could not reach that URL. Check the server is running and the URL is correct.
+                </div>
+            }
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="newIsActive" @bind="newIsActive" />
+                <label class="form-check-label" for="newIsActive">
+                    Set as active (used for all AI conversations)
+                </label>
+            </div>
+            <button class="btn btn-success" @onclick="AddSetting">
+                <i class="bi bi-check-lg me-1"></i> Save Configuration
+            </button>
+        </div>
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!settings.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-cpu" style="font-size:3rem; opacity:.3;"></i>
+                <p class="mt-2">No configurations yet. Add one above.</p>
+                <small>Until a configuration is added, the app uses defaults:<br />
+                    <code>http://localhost:11434/</code> · model: <code>llama3.2-vision</code></small>
+            </div>
+        }
+        else
+        {
+            @foreach (var s in settings)
+            {
+                <div class="border-bottom p-4 @(editingId == s.Id ? "bg-light" : "")">
+                    @if (editingId == s.Id)
+                    {
+                        <!-- Edit mode -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Configuration Name</label>
+                            <input class="form-control" @bind="editName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Ollama Server URL</label>
+                            <div class="input-group">
+                                <input class="form-control font-monospace" @bind="editUrl" @bind:event="oninput" />
+                                <button class="btn btn-outline-secondary" @onclick="LoadEditModels" disabled="@isLoadingEdit">
+                                    @if (isLoadingEdit)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-cloud-download me-1"></i>
+                                    }
+                                    Load Models
+                                </button>
+                            </div>
+                        </div>
+                        @if (editModelList.Any())
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Select Model</label>
+                                <select class="form-select" @bind="editModel">
+                                    <option value="">— pick a model —</option>
+                                    @foreach (var m in editModelList)
+                                    {
+                                        <option value="@m">@m</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Model Name</label>
+                                <input class="form-control font-monospace" @bind="editModel" />
+                                <small class="text-muted">Click "Load Models" to browse what's installed on that server.</small>
+                            </div>
+                        }
+                        @if (editLoadError)
+                        {
+                            <div class="alert alert-warning py-2 mb-3">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                Could not reach that URL. Check the server is running and the URL is correct.
+                            </div>
+                        }
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="editIsActive_@s.Id" @bind="editIsActive" />
+                            <label class="form-check-label" for="editIsActive_@s.Id">
+                                Set as active
+                            </label>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="SaveEdit">
+                                <i class="bi bi-check-lg me-1"></i> Save
+                            </button>
+                            <button class="btn btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- View mode -->
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <h5 class="mb-0 fw-semibold">@s.Name</h5>
+                                    @if (s.IsActive)
+                                    {
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>Active
+                                        </span>
+                                    }
+                                </div>
+                                <div class="text-muted small mb-1">
+                                    <i class="bi bi-link-45deg me-1"></i>
+                                    <code>@s.ModelUrl</code>
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="bi bi-cpu me-1"></i>
+                                    Model: <code>@s.ModelName</code>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                                @if (!s.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => SetActive(s.Id)"
+                                            title="Set as active">
+                                        <i class="bi bi-check-circle me-1"></i>Set Active
+                                    </button>
+                                }
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => StartEdit(s)"
+                                        title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                @if (confirmDeleteId == s.Id)
+                                {
+                                    <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(s.Id)">
+                                        <i class="bi bi-check-lg me-1"></i>Confirm
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="CancelDelete">
+                                        Cancel
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => confirmDeleteId = s.Id"
+                                            title="Delete"
+                                            disabled="@(s.IsActive || settings.Count <= 1)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        @if (s.IsActive)
+                        {
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Active configuration — used for all AI conversations.
+                            </small>
+                        }
+                        @if (settings.Count <= 1 && !s.IsActive)
+                        {
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Last configuration — cannot be deleted.
+                            </small>
+                        }
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<OllamaSetting> settings = new();
+
+    // Add form state
+    private bool showAddForm;
+    private string newName = string.Empty;
+    private string newUrl = "http://localhost:11434/";
+    private string newModel = string.Empty;
+    private bool newIsActive;
+    private List<string> newModelList = new();
+    private bool isLoadingNew;
+    private bool newLoadError;
+
+    // Edit form state
+    private int editingId;
+    private string editName = string.Empty;
+    private string editUrl = string.Empty;
+    private string editModel = string.Empty;
+    private bool editIsActive;
+    private List<string> editModelList = new();
+    private bool isLoadingEdit;
+    private bool editLoadError;
+
+    private int confirmDeleteId;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        settings = await OllamaSvc.GetAllSettingsAsync();
+    }
+
+    private void ToggleAddForm()
+    {
+        showAddForm = !showAddForm;
+        newName = string.Empty;
+        newUrl = "http://localhost:11434/";
+        newModel = string.Empty;
+        newIsActive = false;
+        newModelList = new();
+        newLoadError = false;
+    }
+
+    private async Task LoadNewModels()
+    {
+        if (string.IsNullOrWhiteSpace(newUrl)) return;
+        isLoadingNew = true;
+        newLoadError = false;
+        newModelList = new();
+        StateHasChanged();
+        var models = await OllamaSvc.GetAvailableModelsAsync(newUrl.Trim());
+        newLoadError = !models.Any();
+        newModelList = models;
+        isLoadingNew = false;
+    }
+
+    private async Task LoadEditModels()
+    {
+        if (string.IsNullOrWhiteSpace(editUrl)) return;
+        isLoadingEdit = true;
+        editLoadError = false;
+        editModelList = new();
+        StateHasChanged();
+        var models = await OllamaSvc.GetAvailableModelsAsync(editUrl.Trim());
+        editLoadError = !models.Any();
+        editModelList = models;
+        isLoadingEdit = false;
+    }
+
+    private async Task AddSetting()
+    {
+        if (string.IsNullOrWhiteSpace(newName) || string.IsNullOrWhiteSpace(newUrl) || string.IsNullOrWhiteSpace(newModel))
+        { ShowStatus("Name, URL, and model are required.", true); return; }
+
+        try
+        {
+            await OllamaSvc.CreateSettingAsync(newName.Trim(), newUrl.Trim(), newModel.Trim(), newIsActive);
+            showAddForm = false;
+            await LoadData();
+            ShowStatus("Configuration saved.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void StartEdit(OllamaSetting s)
+    {
+        editingId = s.Id;
+        editName = s.Name;
+        editUrl = s.ModelUrl;
+        editModel = s.ModelName;
+        editIsActive = s.IsActive;
+        editModelList = new();
+        editLoadError = false;
+        confirmDeleteId = 0;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = 0;
+        editModelList = new();
+    }
+
+    private async Task SaveEdit()
+    {
+        if (string.IsNullOrWhiteSpace(editName) || string.IsNullOrWhiteSpace(editUrl) || string.IsNullOrWhiteSpace(editModel))
+        { ShowStatus("Name, URL, and model are required.", true); return; }
+
+        try
+        {
+            await OllamaSvc.UpdateSettingAsync(editingId, editName.Trim(), editUrl.Trim(), editModel.Trim(), editIsActive);
+            editingId = 0;
+            editModelList = new();
+            await LoadData();
+            ShowStatus("Configuration saved.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private async Task SetActive(int id)
+    {
+        try
+        {
+            await OllamaSvc.SetActiveAsync(id);
+            await LoadData();
+            ShowStatus("Active configuration updated.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void CancelDelete() => confirmDeleteId = 0;
+
+    private async Task ConfirmDelete(int id)
+    {
+        try
+        {
+            bool deleted = await OllamaSvc.DeleteSettingAsync(id);
+            confirmDeleteId = 0;
+            if (deleted)
+            {
+                await LoadData();
+                ShowStatus("Configuration deleted.");
+            }
+            else
+            {
+                ShowStatus("Cannot delete: configuration is active or is the only one.", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void ShowStatus(string msg, bool error = false)
+    { statusMessage = msg; statusIsError = error; }
+}

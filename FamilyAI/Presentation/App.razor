@@ -18,6 +18,38 @@
         .sidebar .nav-link i { margin-right: 8px; }
         .page-wrapper { display: flex; min-height: 100vh; }
         .main-content { flex: 1; overflow-x: hidden; }
+
+        /* Mobile header — hidden on desktop */
+        .mobile-header { display: none; }
+
+        /* Sidebar backdrop */
+        .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1040; }
+
+        @@media (max-width: 767.98px) {
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                padding: 10px 16px;
+                position: sticky;
+                top: 0;
+                z-index: 1030;
+                gap: 12px;
+            }
+            .sidebar {
+                position: fixed;
+                top: 0; bottom: 0; left: -260px;
+                width: 260px !important;
+                min-width: 260px !important;
+                min-height: 100vh;
+                z-index: 1050;
+                transition: left .25s ease;
+                overflow-y: auto;
+            }
+            .sidebar.sidebar-open { left: 0; }
+            .sidebar-backdrop.sidebar-open { display: block; }
+            .page-wrapper { flex-direction: column; }
+            .main-content { min-height: calc(100vh - 52px); }
+        }
     </style>
     @if (_cfg["PathBase"] is { Length: > 0 } pathBase)
     {

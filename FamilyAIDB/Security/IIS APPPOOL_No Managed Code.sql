@@ -1,0 +1,2 @@
+﻿CREATE USER [IIS APPPOOL\No Managed Code] FOR LOGIN [IIS APPPOOL\No Managed Code];
+

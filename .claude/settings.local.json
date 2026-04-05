@@ -21,7 +21,9 @@
       "Bash(powershell -command \"New-Item -ItemType Directory -Force ''C:\\\\inetpub\\\\wwwroot\\\\KidsAI\\\\logs'' | Out-Null; \\(Get-Content ''C:\\\\inetpub\\\\wwwroot\\\\KidsAI\\\\web.config''\\) -replace ''stdoutLogEnabled=\"\"false\"\"'', ''stdoutLogEnabled=\"\"true\"\"'' | Set-Content ''C:\\\\inetpub\\\\wwwroot\\\\KidsAI\\\\web.config''; Write-Host ''Logging enabled''\")",
       "Bash(powershell -command \"Get-EventLog -LogName Application -Source ''IIS AspNetCore Module V2'' -Newest 5 -ErrorAction SilentlyContinue | Select-Object TimeGenerated, Message | Format-List\")",
       "Bash(powershell -command \"& ''C:\\\\Windows\\\\System32\\\\inetsrv\\\\appcmd.exe'' recycle apppool ''No Managed Code'' 2>&1\")",
-      "mcp__Windows-MCP__PowerShell"
+      "mcp__Windows-MCP__PowerShell",
+      "Bash(find /c/Users/Shane/source/repos/FamilyAI -name PromptTemplates.cs -o -name *PromptTemplate* -type f)",
+      "Bash(dotnet build:*)"
     ]
   }
 }

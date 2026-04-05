@@ -16,6 +16,7 @@ builder.Services.AddDbContext<MyDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")),
     ServiceLifetime.Transient);
 
+builder.Services.AddHttpClient();
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorizationCore();
 
@@ -30,6 +31,8 @@ builder.Services.AddScoped<ThreadService>();
 builder.Services.AddScoped<ChatLogService>();
 builder.Services.AddScoped<AIChatService>();
 builder.Services.AddScoped<PromptSettingService>();
+builder.Services.AddScoped<OllamaSettingService>();
+builder.Services.AddSingleton<PendingAiTracker>();
 
 var app = builder.Build();
 

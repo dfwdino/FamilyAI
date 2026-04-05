@@ -14,6 +14,7 @@ namespace FamilyAI.Domain.Data
         public DbSet<Models.ParentChild> ParentChildren { get; set; }
         public DbSet<Models.PromptTemplate> PromptTemplates { get; set; }
         public DbSet<Models.UserSetting> UserSettings { get; set; }
+        public DbSet<Models.OllamaSetting> OllamaSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

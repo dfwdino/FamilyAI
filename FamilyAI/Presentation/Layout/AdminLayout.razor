@@ -1,13 +1,28 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
 @inject NavigationManager NavigationManager
+@implements IDisposable
 
 <CascadingAuthenticationState>
 <AuthorizeView Roles="Admin">
     <Authorized>
+        <!-- Mobile header -->
+        <div class="mobile-header bg-dark">
+            <button class="btn btn-link text-white p-0" @onclick="ToggleSidebar">
+                <i class="bi bi-list fs-3"></i>
+            </button>
+            <span class="text-white fw-bold">
+                <i class="bi bi-shield-lock-fill text-primary me-1"></i> FamilyAI Admin
+            </span>
+        </div>
+
+        <!-- Backdrop -->
+        <div class="sidebar-backdrop @(_sidebarOpen ? "sidebar-open" : "")" @onclick="CloseSidebar"></div>
+
         <div class="page-wrapper">
             <!-- Sidebar -->
-            <div class="sidebar bg-dark d-flex flex-column p-3">
+            <div class="sidebar bg-dark d-flex flex-column p-3 @(_sidebarOpen ? "sidebar-open" : "")">
                 <div class="mb-4 px-2">
                     <div class="text-white fw-bold fs-5">
                         <i class="bi bi-shield-lock-fill text-primary"></i> FamilyAI
@@ -39,3 +54,26 @@
     </NotAuthorized>
 </AuthorizeView>
 </CascadingAuthenticationState>
+
+@code {
+    private bool _sidebarOpen;
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+    private void CloseSidebar() => _sidebarOpen = false;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _sidebarOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
