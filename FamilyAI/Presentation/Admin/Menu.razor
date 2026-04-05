@@ -5,22 +5,22 @@
 
 <ul class="nav flex-column">
     <li class="nav-item">
-        <a class="nav-link @IsActive("/admin")" href="/admin">
+        <a class="nav-link @IsActive("/admin")" href="admin">
             <i class="bi bi-speedometer2"></i> Dashboard
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @IsActive("/admin/users")" href="/admin/users">
+        <a class="nav-link @IsActive("/admin/users")" href="admin/users">
             <i class="bi bi-people"></i> Users
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @IsActive("/admin/roles")" href="/admin/roles">
+        <a class="nav-link @IsActive("/admin/roles")" href="admin/roles">
             <i class="bi bi-shield-check"></i> Roles
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @IsActive("/admin/prompts")" href="/admin/prompts">
+        <a class="nav-link @IsActive("/admin/prompts")" href="admin/prompts">
             <i class="bi bi-chat-square-text"></i> Prompts
         </a>
     </li>
@@ -40,6 +40,6 @@
     {
         await Storage.DeleteAsync("familyai_uid");
         AuthStateService.Logout();
-        NavigationManager.NavigateTo("/", true);
+        NavigationManager.NavigateTo(NavigationManager.BaseUri, true);
     }
 }

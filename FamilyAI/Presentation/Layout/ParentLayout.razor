@@ -19,7 +19,7 @@
                 <nav class="flex-grow-1">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="/parent">
+                            <a class="nav-link" href="parent">
                                 <i class="bi bi-house-fill"></i> My Children
                             </a>
                         </li>
@@ -44,7 +44,7 @@
             <div class="text-center">
                 <i class="bi bi-lock-fill text-danger" style="font-size:3rem;"></i>
                 <h3 class="mt-3">Access Denied</h3>
-                <button class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo("/")'>
+                <button class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo(NavigationManager.BaseUri)'>
                     <i class="bi bi-house-fill me-1"></i> Go Home
                 </button>
             </div>
@@ -60,6 +60,6 @@
     {
         await Storage.DeleteAsync("familyai_uid");
         AuthStateService.Logout();
-        NavigationManager.NavigateTo("/", true);
+        NavigationManager.NavigateTo(NavigationManager.BaseUri, true);
     }
 }

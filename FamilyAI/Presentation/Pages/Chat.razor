@@ -137,6 +137,8 @@
     }
 </script>
 
+@implements IDisposable
+
 @code {
     [Parameter] public int ThreadId { get; set; } = 0;
 
@@ -145,11 +147,30 @@
     private int userId;
     private ElementReference chatContainer;
     private bool isThinking;
+    private bool _isSending;
     private int _loadedThreadId = -1;
 
     protected override void OnInitialized()
     {
         userId = AuthStateService.CurrentUser?.UserId ?? 0;
+        // Subscribe so that when AuthRestorer restores the session on direct URL load,
+        // we reload the chat with the correct userId.
+        AuthStateService.OnAuthStateChanged += OnAuthRestored;
+    }
+
+    private void OnAuthRestored()
+    {
+        var newUserId = AuthStateService.CurrentUser?.UserId ?? 0;
+        if (newUserId != 0 && userId == 0)
+        {
+            userId = newUserId;
+            _loadedThreadId = -1; // force reload
+            InvokeAsync(async () =>
+            {
+                await OnParametersSetAsync();
+                StateHasChanged();
+            });
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -158,9 +179,12 @@
         if (_loadedThreadId == ThreadId) return;
         _loadedThreadId = ThreadId;
 
-        logs = new List<ChatLog>();
-        inputText = string.Empty;
-        isThinking = false;
+        if (!_isSending)
+        {
+            logs = new List<ChatLog>();
+            inputText = string.Empty;
+            isThinking = false;
+        }
 
         var template = await _promptSettingService.GetActiveTemplateForUserAsync(userId);
         var systemPrompt = template?.Content ?? FamilyAI.Infrastructure.configuration.PromptTemplates.Educational;
@@ -171,6 +195,11 @@
         }
 
         _aiChatService.Initialize(systemPrompt, logs);
+    }
+
+    public void Dispose()
+    {
+        AuthStateService.OnAuthStateChanged -= OnAuthRestored;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -191,6 +220,7 @@
 
         var messageText = inputText.Trim();
         inputText = string.Empty;
+        _isSending = true;
         isThinking = true;
 
         var userLog = new ChatLog
@@ -205,33 +235,39 @@
         if (ThreadId == 0)
         {
             ThreadId = savedUserLog.ThreadId;
-            NavigationManager.NavigateTo($"/chat/{ThreadId}", false);
+            NavigationManager.NavigateTo($"chat/{ThreadId}", false);
         }
 
         logs.Add(savedUserLog);
         StateHasChanged();
         await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
 
-        try
+        // Run AI call in background so the circuit stays responsive for navigation/clicks
+        var capturedThreadId = ThreadId;
+        var capturedUserId = userId;
+        _ = Task.Run(async () =>
         {
-            var aiResponse = await _aiChatService.ChatWithAIAsync(messageText);
-            var aiLog = await _chatLogService.AddChatLogAsync(userId, ThreadId, aiResponse, isReply: true);
-            logs.Add(aiLog);
-        }
-        catch
-        {
-            logs.Add(new ChatLog
+            ChatLog? aiLog = null;
+            try
             {
-                UserId = userId, ThreadId = ThreadId,
-                Text = "Sorry, I couldn't connect to the AI right now. Please try again.",
-                IsReply = true, EntryTime = DateTime.UtcNow, IsDeleted = false
+                var aiResponse = await _aiChatService.ChatWithAIAsync(messageText);
+                aiLog = await _chatLogService.AddChatLogAsync(capturedUserId, capturedThreadId, aiResponse, isReply: true);
+            }
+            catch { }
+
+            await InvokeAsync(async () =>
+            {
+                logs.Add(aiLog ?? new ChatLog
+                {
+                    UserId = capturedUserId, ThreadId = capturedThreadId,
+                    Text = "Sorry, I couldn't connect to the AI right now. Please try again.",
+                    IsReply = true, EntryTime = DateTime.UtcNow, IsDeleted = false
+                });
+                _isSending = false;
+                isThinking = false;
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
             });
-        }
-        finally
-        {
-            isThinking = false;
-            StateHasChanged();
-            await JSRuntime.InvokeVoidAsync("scrollToBottom", chatContainer);
-        }
+        });
     }
 }

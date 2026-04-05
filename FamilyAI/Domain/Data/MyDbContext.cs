@@ -33,6 +33,18 @@ namespace FamilyAI.Domain.Data
                 .WithMany(u => u.ParentLinks)
                 .HasForeignKey(pc => pc.ChildId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Models.UserSetting>()
+                .HasOne(us => us.User)
+                .WithMany()
+                .HasForeignKey(us => us.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Models.UserSetting>()
+                .HasOne(us => us.PromptTemplate)
+                .WithMany()
+                .HasForeignKey(us => us.PromptTemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

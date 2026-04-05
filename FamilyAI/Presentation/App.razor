@@ -1,14 +1,15 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration _cfg
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
+    <base href="@(_cfg["PathBase"] is { Length: > 0 } pb ? pb + "/" : "/")" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["FamilyAI.styles.css"]" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="FamilyAI.styles.css" />
     <style>
         html, body { height: 100%; margin: 0; }
         .sidebar { min-height: 100vh; width: 230px; min-width: 230px; }
@@ -18,14 +19,46 @@
         .page-wrapper { display: flex; min-height: 100vh; }
         .main-content { flex: 1; overflow-x: hidden; }
     </style>
+    @if (_cfg["PathBase"] is { Length: > 0 } pathBase)
+    {
+        <!-- Redirect /KidsAI → /KidsAI/ if trailing slash is missing -->
+        <script>
+            (function() {
+                var pb = '@pathBase';
+                var p = window.location.pathname;
+                if (p === pb || p.toLowerCase() === pb.toLowerCase()) {
+                    window.location.replace(pb + '/');
+                }
+            })();
+        </script>
+    }
     <ImportMap />
     <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
 </head>
 
 <body>
+    <div id="app-loading" style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#f8f9fa;z-index:9999;">
+        <div style="width:3rem;height:3rem;border:4px solid #dee2e6;border-top-color:#0d6efd;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+        <div style="margin-top:1rem;color:#6c757d;font-family:sans-serif;font-size:1rem;">Loading FamilyAI...</div>
+    </div>
+    <style>
+        @@keyframes spin { to { transform: rotate(360deg); } }
+    </style>
     <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="_framework/blazor.web.js"></script>
+    <script>
+        function hideAppLoader() {
+            var loader = document.getElementById('app-loading');
+            if (loader) {
+                loader.style.transition = 'opacity 0.4s';
+                loader.style.opacity = '0';
+                setTimeout(function () { if (loader.parentNode) loader.remove(); }, 400);
+            }
+        }
+        // Fallback: if circuit never connects after 20s, remove spinner so errors are visible
+        setTimeout(hideAppLoader, 20000);
+    </script>
 </body>
 
 </html>

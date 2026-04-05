@@ -19,7 +19,7 @@ else
 {
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/parent">My Children</a></li>
+            <li class="breadcrumb-item"><a href="parent">My Children</a></li>
             <li class="breadcrumb-item active">@childInfo.Name</li>
         </ol>
     </nav>
@@ -195,7 +195,7 @@ else
 
         if (childInfo == null)
         {
-            NavigationManager.NavigateTo("/parent");
+            NavigationManager.NavigateTo("parent");
             return;
         }
 

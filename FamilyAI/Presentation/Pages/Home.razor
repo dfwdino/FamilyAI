@@ -95,10 +95,10 @@
 
         switch (result.RoleName)
         {
-            case "Admin":  NavigationManager.NavigateTo("/admin");  break;
-            case "Parent": NavigationManager.NavigateTo("/parent"); break;
-            case "Child":  NavigationManager.NavigateTo("/chat");   break;
-            default:       NavigationManager.NavigateTo("/");       break;
+            case "Admin":  NavigationManager.NavigateTo("admin");  break;
+            case "Parent": NavigationManager.NavigateTo("parent"); break;
+            case "Child":  NavigationManager.NavigateTo("chat");   break;
+            default:       NavigationManager.NavigateTo(NavigationManager.BaseUri); break;
         }
     }
 }

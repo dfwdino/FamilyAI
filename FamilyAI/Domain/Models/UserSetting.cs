@@ -12,10 +12,8 @@ namespace FamilyAI.Domain.Models
         [Required]
         public int PromptTemplateId { get; set; }
 
-        [ForeignKey(nameof(UserId))]
         public virtual UserModel User { get; set; } = null!;
 
-        [ForeignKey(nameof(PromptTemplateId))]
         public virtual PromptTemplate PromptTemplate { get; set; } = null!;
     }
 }

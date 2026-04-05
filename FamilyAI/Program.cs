@@ -33,11 +33,28 @@ builder.Services.AddScoped<PromptSettingService>();
 
 var app = builder.Build();
 
+var pathBase = app.Configuration["PathBase"];
+if (!string.IsNullOrEmpty(pathBase))
+{
+    // Redirect /KidsAI → /KidsAI/ so base href resolves correctly
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.Value?.Equals(pathBase, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            context.Response.Redirect(pathBase + "/");
+            return;
+        }
+        await next();
+    });
+    app.UsePathBase(pathBase);
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
+app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();

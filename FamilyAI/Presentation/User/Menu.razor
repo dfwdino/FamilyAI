@@ -59,7 +59,7 @@
     {
         await Storage.DeleteAsync("familyai_uid");
         AuthStateService.Logout();
-        NavigationManager.NavigateTo("/", true);
+        NavigationManager.NavigateTo(NavigationManager.BaseUri, true);
     }
 
     public void Dispose()
