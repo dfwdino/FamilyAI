@@ -78,6 +78,11 @@
     <Build Include="Chat\Tables\OllamaSettings.sql" />
     <Build Include="Security\IIS APPPOOL_No Managed Code.sql" />
     <Build Include="Security\RoleMemberships.sql" />
+    <Build Include="Chat\Tables\ThreadScanResults.sql" />
+    <Build Include="Chat\Tables\ThreadFlagDetails.sql" />
+    <Build Include="Chat\Tables\ParentScanSettings.sql" />
+    <Build Include="Chat\Tables\ParentFlagRules.sql" />
+    <Build Include="Chat\Tables\GlobalFlagRules.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sever to Project.scmp" />

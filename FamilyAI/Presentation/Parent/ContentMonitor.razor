@@ -1,0 +1,284 @@
+@page "/parent/content-monitor"
+@layout ParentLayout
+@inject ThreadService ThreadSvc
+@inject ThreadScanService ScanSvc
+@inject AuthStateService AuthStateService
+@inject NavigationManager NavigationManager
+@inject UserManagementService UserMgmt
+
+<PageTitle>Content Monitor — FamilyAI</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Content Monitor</h2>
+        <small class="text-muted">Scan your children's conversations for flagged content</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <a href="parent/flag-rules" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-funnel me-1"></i>Manage Rules
+        </a>
+        <button class="btn btn-primary btn-sm" @onclick="ScanAllAsync" disabled="@_scanning">
+            @if (_scanning)
+            {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+                <span>Scanning @_scanProgress of @_scanTotal...</span>
+            }
+            else
+            {
+                <i class="bi bi-shield-check me-1"></i>
+                <span>Scan All Threads</span>
+            }
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_statusMessage))
+{
+    <div class="alert @(_statusIsError ? "alert-danger" : "alert-success") alert-dismissible d-flex align-items-center gap-2 mb-3">
+        <i class="bi @(_statusIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")"></i>
+        @_statusMessage
+        <button type="button" class="btn-close ms-auto" @onclick='() => _statusMessage = null'></button>
+    </div>
+}
+
+@if (_threadRows.Any())
+{
+    <!-- Summary strip -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-3 fw-bold">@_threadRows.Count</div>
+                <div class="text-muted small">Total Threads</div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-3 fw-bold text-danger">@_threadRows.Count(r => r.ScanResult?.IsFlagged == true)</div>
+                <div class="text-muted small">Flagged</div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-3 fw-bold text-muted">@_threadRows.Count(r => r.ScanResult == null)</div>
+                <div class="text-muted small">Not Scanned</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Thread</th>
+                        <th>Child</th>
+                        <th style="width:140px;">Status</th>
+                        <th style="width:160px;">Last Scanned</th>
+                        <th style="width:120px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _threadRows.OrderByDescending(r => r.ScanResult?.IsFlagged == true).ThenBy(r => r.Thread.ThreadName))
+                    {
+                        <tr>
+                            <td>
+                                <i class="bi bi-chat-left-text text-primary me-2"></i>
+                                <strong>@row.Thread.ThreadName</strong>
+                            </td>
+                            <td>
+                                <small class="text-muted">@row.ChildName</small>
+                            </td>
+                            <td>
+                                @if (row.IsScanning)
+                                {
+                                    <span class="badge bg-secondary">
+                                        <span class="spinner-border spinner-border-sm me-1" style="width:.65rem;height:.65rem;"></span>Scanning...
+                                    </span>
+                                }
+                                else if (row.ScanResult == null)
+                                {
+                                    <span class="badge bg-light text-muted border">Not Scanned</span>
+                                }
+                                else if (row.ScanResult.IsFlagged)
+                                {
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Flagged
+                                    </span>
+                                }
+                                else if (row.IsStale)
+                                {
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-clock-history me-1"></i>Stale
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Clean
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    @(row.ScanResult != null
+                                        ? row.ScanResult.ScannedAt.ToLocalTime().ToString("g")
+                                        : "—")
+                                </small>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    @if (row.ScanResult != null)
+                                    {
+                                        <a class="btn btn-sm btn-outline-primary"
+                                           href="parent/thread-scan/@row.Thread.Id">
+                                            <i class="bi bi-eye me-1"></i>View
+                                        </a>
+                                    }
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            @onclick="() => ScanThreadAsync(row)"
+                                            disabled="@(row.IsScanning || _scanning)">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (!_loading)
+{
+    <div class="text-center py-5">
+        <i class="bi bi-chat-slash text-muted" style="font-size:3rem;opacity:.3;"></i>
+        <p class="mt-2 text-muted">No conversations found to monitor.</p>
+    </div>
+}
+else
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
+}
+
+@code {
+    private class ThreadRow
+    {
+        public required ThreadModel Thread { get; init; }
+        public string ChildName { get; set; } = string.Empty;
+        public ThreadScanResult? ScanResult { get; set; }
+        public bool IsStale { get; set; }
+        public bool IsScanning { get; set; }
+    }
+
+    private List<ThreadRow> _threadRows = new();
+    private bool _loading = true;
+    private bool _scanning;
+    private int _scanProgress;
+    private int _scanTotal;
+    private string? _statusMessage;
+    private bool _statusIsError;
+
+    private int ParentId => AuthStateService.CurrentUser!.UserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadThreadsAsync();
+        _loading = false;
+    }
+
+    private async Task LoadThreadsAsync()
+    {
+        var children = await UserMgmt.GetChildrenForParentAsync(ParentId);
+        var childMap = children.ToDictionary(c => c.Id, c => c.Name);
+
+        List<ThreadModel> threads;
+        if (children.Any())
+        {
+            var childIds = children.Select(c => c.Id).ToHashSet();
+            threads = new List<ThreadModel>();
+            foreach (var cid in childIds)
+                threads.AddRange(ThreadSvc.GetAllThreadsByUser(cid));
+        }
+        else
+        {
+            // No children linked — show all threads not owned by this parent
+            threads = ThreadSvc.GetAllThreadsByUser(ParentId); // fallback; will be empty for parent
+            // In practice, a parent with no children linked sees nothing useful
+            threads = new List<ThreadModel>();
+        }
+
+        var newRows = new List<ThreadRow>();
+        foreach (var thread in threads)
+        {
+            var scanResult = await ScanSvc.GetLatestScanResultAsync(thread.Id, ParentId);
+            var isStale = scanResult != null && await ScanSvc.IsResultStaleAsync(scanResult, ParentId);
+
+            newRows.Add(new ThreadRow
+            {
+                Thread = thread,
+                ChildName = childMap.TryGetValue(thread.UserId, out var name) ? name : "Unknown",
+                ScanResult = scanResult,
+                IsStale = isStale
+            });
+        }
+        _threadRows = newRows;
+    }
+
+    private async Task ScanThreadAsync(ThreadRow row)
+    {
+        row.IsScanning = true;
+        StateHasChanged();
+        try
+        {
+            row.ScanResult = await ScanSvc.ScanThreadAsync(row.Thread.Id, ParentId);
+            row.IsStale = false;
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Scan failed: {ex.Message}", true);
+        }
+        finally
+        {
+            row.IsScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScanAllAsync()
+    {
+        _scanning = true;
+        _scanProgress = 0;
+        _scanTotal = _threadRows.Count;
+        StateHasChanged();
+
+        try
+        {
+            await ScanSvc.ScanAllThreadsAsync(ParentId, async (done, total) =>
+            {
+                _scanProgress = done;
+                _scanTotal = total;
+                await InvokeAsync(StateHasChanged);
+            });
+
+            await LoadThreadsAsync();
+            ShowStatus("All threads scanned.");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Scan error: {ex.Message}", true);
+        }
+        finally
+        {
+            _scanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowStatus(string msg, bool error = false)
+    {
+        _statusMessage = msg;
+        _statusIsError = error;
+    }
+}

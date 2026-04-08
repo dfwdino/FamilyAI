@@ -1,0 +1,215 @@
+@page "/parent/thread-scan/{ThreadId:int}"
+@layout ParentLayout
+@inject ThreadScanService ScanSvc
+@inject ChatLogService ChatLogSvc
+@inject ThreadService ThreadSvc
+@inject AuthStateService AuthStateService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Scan Detail — FamilyAI</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
+}
+else if (_scanResult == null)
+{
+    <div class="text-center py-5">
+        <i class="bi bi-shield text-muted" style="font-size:3rem;opacity:.3;"></i>
+        <p class="mt-2 text-muted">This thread hasn't been scanned yet.</p>
+        <a href="parent/content-monitor" class="btn btn-primary btn-sm mt-2">
+            <i class="bi bi-arrow-left me-1"></i>Back to Monitor
+        </a>
+    </div>
+}
+else
+{
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="parent/content-monitor">Content Monitor</a></li>
+            <li class="breadcrumb-item active">@_threadName</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h4 class="fw-semibold mb-1">@_threadName</h4>
+            <small class="text-muted">
+                Scanned @_scanResult.ScannedAt.ToLocalTime().ToString("f")
+                @if (_isStale)
+                {
+                    <span class="badge bg-warning text-dark ms-2">
+                        <i class="bi bi-clock-history me-1"></i>Rules have changed — rescan recommended
+                    </span>
+                }
+            </small>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="RescanAsync" disabled="@_rescanning">
+            @if (_rescanning)
+            {
+                <span class="spinner-border spinner-border-sm me-1"></span><span>Scanning...</span>
+            }
+            else
+            {
+                <i class="bi bi-arrow-repeat me-1"></i><span>Re-scan</span>
+            }
+        </button>
+    </div>
+
+    <!-- Result banner -->
+    @if (_scanResult.IsFlagged)
+    {
+        <div class="alert alert-danger d-flex gap-3 mb-4">
+            <i class="bi bi-exclamation-triangle-fill fs-4 mt-1"></i>
+            <div>
+                <div class="fw-semibold mb-1">Content was flagged in this conversation</div>
+                @if (!string.IsNullOrEmpty(_scanResult.AiSummary))
+                {
+                    <p class="mb-2">@_scanResult.AiSummary</p>
+                }
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    @foreach (var flag in _scanResult.FlagDetails.Where(d => !d.IsDeleted))
+                    {
+                        <span class="badge @(flag.Source == FlagSource.Keyword ? "bg-danger" : flag.RuleType == FlagRuleType.Topic ? "bg-warning text-dark" : "bg-info text-dark")">
+                            <i class="bi @(flag.Source == FlagSource.Keyword ? "bi-search" : "bi-robot") me-1"></i>
+                            @flag.RuleType: @flag.RuleValue
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success d-flex gap-2 mb-4">
+            <i class="bi bi-check-circle-fill fs-5"></i>
+            <div>
+                <strong>No concerning content found.</strong>
+                @if (!string.IsNullOrEmpty(_scanResult.AiSummary))
+                {
+                    <span class="ms-2 text-muted">@_scanResult.AiSummary</span>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Conversation -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-chat-left-text text-primary me-2"></i>Conversation
+        </div>
+        <div class="card-body p-3" style="background:#f8f9fa;">
+            @if (!_messages.Any())
+            {
+                <p class="text-muted mb-0">No messages.</p>
+            }
+            else
+            {
+                @foreach (var msg in _messages)
+                {
+                    var flagsForMsg = _scanResult.FlagDetails
+                        .Where(d => !d.IsDeleted && d.MessageId == msg.Id && d.Source == FlagSource.Keyword)
+                        .ToList();
+                    var isFlagged = flagsForMsg.Any();
+
+                    <div class="d-flex mb-3 @(msg.IsReply ? "justify-content-start" : "justify-content-end")">
+                        @if (msg.IsReply)
+                        {
+                            <div class="me-2 mt-1">
+                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                     style="width:28px;height:28px;">
+                                    <i class="bi bi-robot text-white" style="font-size:.65rem;"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="background:#fff;border:1px solid #dee2e6;border-radius:12px 12px 12px 4px;padding:8px 12px;max-width:520px;">
+                                    @msg.Text
+                                </div>
+                                <div class="text-muted mt-1" style="font-size:.7rem;">
+                                    @msg.EntryTime.ToLocalTime().ToString("g")
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-end">
+                                <div style="@(isFlagged ? "background:#dc3545;" : "background:#0d6efd;") color:#fff;border-radius:12px 12px 4px 12px;padding:8px 12px;max-width:520px;display:inline-block;">
+                                    @msg.Text
+                                    @if (isFlagged)
+                                    {
+                                        <i class="bi bi-flag-fill ms-2" style="font-size:.75rem;" title="Keyword flagged"></i>
+                                    }
+                                </div>
+                                @if (isFlagged)
+                                {
+                                    <div class="mt-1">
+                                        @foreach (var flag in flagsForMsg)
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger me-1" style="font-size:.65rem;">
+                                                keyword: "@flag.RuleValue"
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                <div class="text-muted mt-1" style="font-size:.7rem;">
+                                    @msg.EntryTime.ToLocalTime().ToString("g")
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int ThreadId { get; set; }
+
+    private ThreadScanResult? _scanResult;
+    private List<ChatLog> _messages = new();
+    private string _threadName = string.Empty;
+    private bool _isStale;
+    private bool _loading = true;
+    private bool _rescanning;
+
+    private int ParentId => AuthStateService.CurrentUser!.UserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        var thread = ThreadSvc.GetAllThreadsByUser(0)
+            .FirstOrDefault(t => t.Id == ThreadId);
+
+        // GetAllThreadsByUser by user=0 won't work — load thread name separately
+        _threadName = $"Thread #{ThreadId}";
+
+        _scanResult = await ScanSvc.GetLatestScanResultAsync(ThreadId, ParentId);
+        if (_scanResult != null)
+            _isStale = await ScanSvc.IsResultStaleAsync(_scanResult, ParentId);
+
+        _messages = await ChatLogSvc.GetChatLogsByThreadAsync(ThreadId);
+    }
+
+    private async Task RescanAsync()
+    {
+        _rescanning = true;
+        try
+        {
+            _scanResult = await ScanSvc.ScanThreadAsync(ThreadId, ParentId);
+            _isStale = false;
+            _messages = await ChatLogSvc.GetChatLogsByThreadAsync(ThreadId);
+        }
+        finally
+        {
+            _rescanning = false;
+        }
+    }
+}

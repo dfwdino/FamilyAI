@@ -32,6 +32,8 @@ builder.Services.AddScoped<ChatLogService>();
 builder.Services.AddScoped<AIChatService>();
 builder.Services.AddScoped<PromptSettingService>();
 builder.Services.AddScoped<OllamaSettingService>();
+builder.Services.AddScoped<FlagRuleService>();
+builder.Services.AddScoped<ThreadScanService>();
 builder.Services.AddSingleton<PendingAiTracker>();
 
 var app = builder.Build();

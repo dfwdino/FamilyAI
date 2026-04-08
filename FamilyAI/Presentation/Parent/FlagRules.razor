@@ -1,0 +1,260 @@
+@page "/parent/flag-rules"
+@layout ParentLayout
+@inject FlagRuleService FlagRuleSvc
+@inject AuthStateService AuthStateService
+
+<PageTitle>Content Rules — FamilyAI</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Content Rules</h2>
+        <small class="text-muted">Words, topics, and tones that will be flagged in your children's conversations</small>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_statusMessage))
+{
+    <div class="alert @(_statusIsError ? "alert-danger" : "alert-success") alert-dismissible d-flex align-items-center gap-2 mb-3">
+        <i class="bi @(_statusIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")"></i>
+        @_statusMessage
+        <button type="button" class="btn-close ms-auto" @onclick='() => _statusMessage = null'></button>
+    </div>
+}
+
+<!-- Sensitivity setting -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-sliders text-primary fs-4"></i>
+            <div class="flex-grow-1">
+                <div class="fw-semibold">Scan Sensitivity</div>
+                <small class="text-muted">Controls how strictly the AI interprets topics and tones</small>
+            </div>
+            <div class="d-flex gap-2">
+                @foreach (var level in Enum.GetValues<ScanSensitivity>())
+                {
+                    <button class="btn btn-sm @(_sensitivity == level ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SetSensitivityAsync(level)">
+                        @level
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="mt-2 ms-5 ps-3">
+            <small class="text-muted fst-italic">
+                @(_sensitivity switch
+                {
+                    ScanSensitivity.Low => "Low: Only flags explicit, unambiguous matches. Fewer false positives.",
+                    ScanSensitivity.High => "High: Flags anything loosely related. May produce more false positives.",
+                    _ => "Medium: Flags meaningful involvement even if not the main topic. Balanced."
+                })
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Add custom rule -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold py-3">
+        <i class="bi bi-plus-circle text-success me-2"></i>Add Custom Rule
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-sm-2">
+                <label class="form-label small fw-semibold">Type</label>
+                <select class="form-select form-select-sm" @bind="_newType">
+                    @foreach (var t in Enum.GetValues<FlagRuleType>())
+                    {
+                        <option value="@t">@t</option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small fw-semibold">
+                    @(_newType == FlagRuleType.Keyword ? "Keyword / Phrase" : "Topic or Tone Description")
+                </label>
+                <input class="form-control form-control-sm" placeholder="e.g. vaping" @bind="_newValue" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Description <span class="fw-normal text-muted">(optional)</span></label>
+                <input class="form-control form-control-sm" placeholder="Why you're flagging this" @bind="_newDescription" />
+            </div>
+            <div class="col-sm-2">
+                <button class="btn btn-success btn-sm w-100" @onclick="AddRuleAsync"
+                        disabled="@string.IsNullOrWhiteSpace(_newValue)">
+                    <i class="bi bi-plus-lg me-1"></i>Add
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rules table -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <span class="fw-semibold"><i class="bi bi-funnel-fill text-primary me-2"></i>Active Rules (@_rules.Count(r => r.IsActive) of @_rules.Count)</span>
+        <button class="btn btn-sm btn-outline-warning" @onclick="() => _confirmReset = true">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Defaults
+        </button>
+    </div>
+
+    @if (_confirmReset)
+    {
+        <div class="alert alert-warning m-3 d-flex align-items-center justify-content-between">
+            <span><i class="bi bi-exclamation-triangle-fill me-2"></i>This will remove all custom rules and restore the original defaults. Are you sure?</span>
+            <div class="d-flex gap-2 ms-3">
+                <button class="btn btn-warning btn-sm" @onclick="ResetToDefaultsAsync">Yes, Reset</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmReset = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:90px;">Type</th>
+                    <th>Value</th>
+                    <th>Description</th>
+                    <th style="width:80px;" class="text-center">Active</th>
+                    <th style="width:60px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var group in _rules.GroupBy(r => r.Type).OrderBy(g => g.Key))
+                {
+                    <tr class="table-secondary">
+                        <td colspan="5" class="py-2 px-3">
+                            <small class="fw-bold text-uppercase text-muted">
+                                @(group.Key switch
+                                {
+                                    FlagRuleType.Keyword => "Keywords",
+                                    FlagRuleType.Topic => "Topics",
+                                    _ => "Tones"
+                                })
+                            </small>
+                        </td>
+                    </tr>
+                    @foreach (var rule in group.OrderBy(r => r.Value))
+                    {
+                        <tr class="@(!rule.IsActive ? "text-muted" : "")">
+                            <td>
+                                <span class="badge @(rule.Type switch { FlagRuleType.Keyword => "bg-danger-subtle text-danger", FlagRuleType.Topic => "bg-warning-subtle text-warning-emphasis", _ => "bg-info-subtle text-info-emphasis" })">
+                                    @rule.Type
+                                </span>
+                            </td>
+                            <td>
+                                <span class="@(!rule.IsActive ? "text-decoration-line-through" : "")">@rule.Value</span>
+                                @if (rule.GlobalRuleId.HasValue)
+                                {
+                                    <span class="ms-1 badge bg-secondary-subtle text-secondary" style="font-size:.65rem;">default</span>
+                                }
+                            </td>
+                            <td><small class="text-muted">@rule.Description</small></td>
+                            <td class="text-center">
+                                <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           checked="@rule.IsActive"
+                                           @onchange="async e => await ToggleRuleAsync(rule.Id, (bool)e.Value!)" />
+                                </div>
+                            </td>
+                            <td>
+                                @if (_confirmDeleteId == rule.Id)
+                                {
+                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteRuleAsync(rule.Id)">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmDeleteId = rule.Id"
+                                            title="Delete rule">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                @if (!_rules.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">No rules configured.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<ParentFlagRule> _rules = new();
+    private ScanSensitivity _sensitivity = ScanSensitivity.Medium;
+
+    private FlagRuleType _newType = FlagRuleType.Keyword;
+    private string _newValue = string.Empty;
+    private string _newDescription = string.Empty;
+
+    private bool _confirmReset;
+    private int _confirmDeleteId;
+    private string? _statusMessage;
+    private bool _statusIsError;
+
+    private int ParentId => AuthStateService.CurrentUser!.UserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _rules = await FlagRuleSvc.GetParentRulesAsync(ParentId);
+        _sensitivity = await FlagRuleSvc.GetSensitivityAsync(ParentId);
+    }
+
+    private async Task SetSensitivityAsync(ScanSensitivity level)
+    {
+        _sensitivity = level;
+        await FlagRuleSvc.SetSensitivityAsync(ParentId, level);
+        ShowStatus("Sensitivity saved.");
+    }
+
+    private async Task AddRuleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newValue)) return;
+        await FlagRuleSvc.AddParentRuleAsync(ParentId, _newType, _newValue, _newDescription);
+        _newValue = string.Empty;
+        _newDescription = string.Empty;
+        await LoadAsync();
+        ShowStatus("Rule added.");
+    }
+
+    private async Task ToggleRuleAsync(int ruleId, bool isActive)
+    {
+        await FlagRuleSvc.ToggleParentRuleAsync(ruleId, isActive);
+        await LoadAsync();
+    }
+
+    private async Task DeleteRuleAsync(int ruleId)
+    {
+        await FlagRuleSvc.DeleteParentRuleAsync(ruleId);
+        _confirmDeleteId = 0;
+        await LoadAsync();
+        ShowStatus("Rule deleted.");
+    }
+
+    private async Task ResetToDefaultsAsync()
+    {
+        await FlagRuleSvc.ResetToDefaultsAsync(ParentId);
+        _confirmReset = false;
+        await LoadAsync();
+        ShowStatus("Rules reset to defaults.");
+    }
+
+    private void ShowStatus(string msg, bool error = false)
+    {
+        _statusMessage = msg;
+        _statusIsError = error;
+    }
+}
