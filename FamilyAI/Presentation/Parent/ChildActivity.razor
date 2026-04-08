@@ -5,6 +5,7 @@
 @inject ThreadService ThreadSvc
 @inject ChatLogService ChatLogSvc
 @inject PromptSettingService PromptSvc
+@inject ThreadScanService ScanSvc
 @inject NavigationManager NavigationManager
 
 <PageTitle>Child Activity</PageTitle>
@@ -87,6 +88,38 @@ else
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-chat-left-text text-primary"></i>
                         <strong>@thread.ThreadName</strong>
+                        @{
+                            scanResults.TryGetValue(thread.Id, out var sr);
+                            var scanning = scanningThreadIds.Contains(thread.Id);
+                        }
+                        @if (scanning)
+                        {
+                            <span class="badge bg-secondary ms-1">
+                                <span class="spinner-border spinner-border-sm me-1" style="width:.6rem;height:.6rem;"></span><span>Scanning</span>
+                            </span>
+                        }
+                        else if (sr == null)
+                        {
+                            <span class="badge bg-light text-muted border ms-1" style="font-size:.65rem;">Not Scanned</span>
+                        }
+                        else if (sr.IsFlagged)
+                        {
+                            <span class="badge bg-danger ms-1" style="font-size:.65rem;">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>Flagged
+                            </span>
+                        }
+                        else if (staleThreadIds.Contains(thread.Id))
+                        {
+                            <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">
+                                <i class="bi bi-clock-history me-1"></i>Stale
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success ms-1" style="font-size:.65rem;">
+                                <i class="bi bi-shield-check me-1"></i>Clean
+                            </span>
+                        }
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-sm btn-outline-secondary"
@@ -99,6 +132,12 @@ else
                             {
                                 <i class="bi bi-eye me-1"></i><span>View</span>
                             }
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary"
+                                title="Scan this conversation"
+                                disabled="@(scanning)"
+                                @onclick="() => ScanThreadAsync(thread.Id)">
+                            <i class="bi bi-shield"></i>
                         </button>
                         @if (confirmDeleteThreadId == thread.Id)
                         {
@@ -187,6 +226,10 @@ else
     private int activeTemplateId;
     private bool promptSaved;
 
+    private Dictionary<int, ThreadScanResult> scanResults = new();
+    private HashSet<int> scanningThreadIds = new();
+    private HashSet<int> staleThreadIds = new();
+
     protected override async Task OnInitializedAsync()
     {
         if (AuthStateService.CurrentUser == null) return;
@@ -201,6 +244,18 @@ else
         }
 
         threads = ThreadSvc.GetAllThreadsByUser(ChildId);
+
+        var parentId = AuthStateService.CurrentUser.UserId;
+        foreach (var t in threads)
+        {
+            var result = await ScanSvc.GetLatestScanResultAsync(t.Id, parentId);
+            if (result != null)
+            {
+                scanResults[t.Id] = result;
+                if (await ScanSvc.IsResultStaleAsync(result, parentId))
+                    staleThreadIds.Add(t.Id);
+            }
+        }
 
         allTemplates = await PromptSvc.GetAllTemplatesAsync();
         activeTemplateId = await PromptSvc.GetActiveTemplateIdForUserAsync(ChildId);
@@ -270,6 +325,30 @@ else
             statusMessage = $"Error deleting conversation: {ex.Message}";
             statusIsError = true;
             confirmDeleteThreadId = 0;
+        }
+    }
+
+    private async Task ScanThreadAsync(int threadId)
+    {
+        if (AuthStateService.CurrentUser == null) return;
+        var parentId = AuthStateService.CurrentUser.UserId;
+
+        scanningThreadIds.Add(threadId);
+        StateHasChanged();
+        try
+        {
+            var result = await ScanSvc.ScanThreadAsync(threadId, parentId);
+            scanResults[threadId] = result;
+            staleThreadIds.Remove(threadId);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Scan failed: {ex.Message}", true);
+        }
+        finally
+        {
+            scanningThreadIds.Remove(threadId);
+            StateHasChanged();
         }
     }
 
