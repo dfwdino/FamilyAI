@@ -1,4 +1,4 @@
-##FamilyAI -- A Safe AI Chat for Your Kids
+**FamilyAI -- A Safe AI Chat for Your Kids**
 
 FamilyAI is a locally hosted AI chat application built for families who want to give their kids access to AI without sacrificing privacy or control. It leverages Ollama to process all AI requests, which means nothing leaves your house and no personal information is shared with any third-party service.
 The Kids area gives children a focused and guided chat experience. The system prompt is pre-configured to keep conversations appropriate and educational, and kids are not able to delete their chat history.
